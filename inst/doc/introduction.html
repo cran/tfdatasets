@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+<title>R interface to TensorFlow Dataset API</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+
+
+<link href="data:text/css;charset=utf-8,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23header%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%20code%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">R interface to TensorFlow Dataset API</h1>
+
+
+
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>The TensorFlow Dataset API provides various facilities for creating scalable input pipelines for TensorFlow models, including:</p>
+<ul>
+<li><p>Reading data from a variety of formats including CSV files and <a href="https://www.tensorflow.org/api_guides/python/python_io#tfrecords_format_details">TFRecords files</a> (the standard binary format for TensorFlow training data).</p></li>
+<li><p>Transforming datasets in a variety of ways including mapping arbitrary functions against them.</p></li>
+<li><p>Shuffling, batching, and repeating datasets over a number of epochs.</p></li>
+<li><p>Streaming interface to data for reading arbitrarily large datasets.</p></li>
+<li><p>Reading and transforming data are TensorFlow graph operations, so are executed in C++ and in parallel with model training.</p></li>
+</ul>
+<p>The R interface to TensorFlow datasets provides access to the Dataset API, including high-level convenience functions for easy integration with the <a href="https://tensorflow.rstudio.com/keras">keras</a> and <a href="https://tensorflow.rstudio.com/tfestimators">tfestimators</a> R packages.</p>
+</div>
+<div id="installation" class="section level2">
+<h2>Installation</h2>
+<p>To use <strong>tfdatasets</strong> you need to install both the R package as well as <a href="https://rstudio.github.io/tensorflow/">TensorFlow</a> itself.</p>
+<p>First, install the tfdatasets R package from CRAN as follows:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">install.packages</span>(<span class="st">&quot;tfdatasets&quot;</span>)</code></pre></div>
+<p>Then, use the <code>install_tensorflow()</code> function to install TensorFlow:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(tfdtasets)
+<span class="kw">install_tensorflow</span>()</code></pre></div>
+</div>
+<div id="creating-a-dataset" class="section level2">
+<h2>Creating a Dataset</h2>
+<p>To create a dataset, use one of the <a href="reference/index.html#section-creating-datasets">dataset creation</a> functions. Dataset can be created from delimted text files, <a href="https://www.tensorflow.org/api_guides/python/python_io#tfrecords_format_details">TFRecords files</a>, as well as from in-memory data.</p>
+<div id="text-files" class="section level3">
+<h3>Text Files</h3>
+<p>For example, to create a dataset from a text file, first create a specification for how records will be decoded from the file, then call <code>text_line_dataset()</code> with the file to be read and the specification:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(tfdatasets)
+
+<span class="co"># create specification for parsing records from an example file</span>
+iris_spec &lt;-<span class="st"> </span><span class="kw">csv_record_spec</span>(<span class="st">&quot;iris.csv&quot;</span>)
+
+<span class="co"># read the datset</span>
+dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;iris.csv&quot;</span>, <span class="dt">record_spec =</span> iris_spec) 
+
+<span class="co"># take a glimpse at the dataset</span>
+<span class="kw">str</span>(dataset)</code></pre></div>
+<pre><code>TensorFlow Dataset
+Petal.Length : &lt;tf.float32&gt; 1.4 1.4 1.3 1.5 1.4 1.7 1.4 1.5 1.4 1.5 1.5 1.6 1.4 1.1 1.2 1...
+Sepal.Length : &lt;tf.float32&gt; 5.1 4.9 4.7 4.6 5 5.4 4.6 5 4.4 4.9 5.4 4.8 4.8 4.3 5.8 5.7 5...
+Petal.Width  : &lt;tf.float32&gt; 0.2 0.2 0.2 0.2 0.2 0.4 0.3 0.2 0.2 0.1 0.2 0.2 0.1 0.1 0.2 0...
+Sepal.Width  : &lt;tf.float32&gt; 3.5 3 3.2 3.1 3.6 3.9 3.4 3.4 2.9 3.1 3.7 3.4 3 3 4 4.4 3.9 3...
+Species      : &lt;tf.int32&gt;   1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ..</code></pre>
+<p>In the example above, the <code>csv_record_spec()</code> function is passed an example file which is used to automatically detect column names and types (done by reading up to the first 1,000 lines of the file). You can also provide explicit column names and/or data types using the <code>names</code> and <code>types</code> parameters (note that in this case we don’t pass an example file):</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># provide colum names and types explicitly</span>
+iris_spec &lt;-<span class="st"> </span><span class="kw">csv_record_spec</span>(
+  <span class="dt">names =</span> <span class="kw">c</span>(<span class="st">&quot;SepalLength&quot;</span>, <span class="st">&quot;SepalWidth&quot;</span>, <span class="st">&quot;PetalLength&quot;</span>, <span class="st">&quot;PetalWidth&quot;</span>, <span class="st">&quot;Species&quot;</span>),
+  <span class="dt">types =</span> <span class="kw">c</span>(<span class="st">&quot;double&quot;</span>, <span class="st">&quot;double&quot;</span>, <span class="st">&quot;double&quot;</span>, <span class="st">&quot;double&quot;</span>, <span class="st">&quot;integer&quot;</span>), 
+  <span class="dt">skip =</span> <span class="dv">1</span>
+)
+
+<span class="co"># read the datset</span>
+dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;iris.csv&quot;</span>, <span class="dt">record_spec =</span> iris_spec)</code></pre></div>
+<p>Note that we’ve also specified <code>skip = 1</code> to indicate that the first row of the CSV that contains column names should be skipped.</p>
+<p>Supported column types are integer, double, and character. You can also provide <code>types</code> in a more compact form using single-letter abbreviations (e.g. <code>types = &quot;dddi&quot;</code>). For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">mtcars_spec &lt;-<span class="st"> </span><span class="kw">csv_record_spec</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">types =</span> <span class="st">&quot;dididddiiii&quot;</span>)</code></pre></div>
+<div id="parallel-decoding" class="section level4">
+<h4>Parallel Decoding</h4>
+<p>Decoding lines of text into a record can be computationally expensive. You can parallelize these computations using the <code>parallel_records</code> parameter. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;iris.csv&quot;</span>, <span class="dt">record_spec =</span> iris_spec, <span class="dt">parallel_records =</span> <span class="dv">4</span>)</code></pre></div>
+<p>You can also parallelize the reading of data from storage by requesting that a buffer of records be prefected. You do this with the <code>dataset_prefetch()</code> function. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;iris.csv&quot;</span>, <span class="dt">record_spec =</span> iris_spec, <span class="dt">parallel_records =</span> <span class="dv">4</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prefetch</span>(<span class="dv">1000</span>)</code></pre></div>
+<p>If you have multiple input files, you can also parallelize reading of these files both across multiple machines (sharding) and/or on multiple threads per-machine (parallel reads with interleaving). See the section on <a href="#reading-multiple-files">Reading Multiple Files</a> below for additional details.</p>
+</div>
+</div>
+<div id="tfrecords-files" class="section level3">
+<h3>TFRecords Files</h3>
+<p>You can read datasets from <a href="https://www.tensorflow.org/api_guides/python/python_io#tfrecords_format_details">TFRecords files</a> using the <code>tfrecord_dataset()</code> function.</p>
+<p>In many cases you’ll want to map the records in the dataset into a set of named columns. You can do this using the <code>dataset_map()</code> function along with the <code>tf$parse_single_example()</code> function. for example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Creates a dataset that reads all of the examples from two files, and extracts</span>
+<span class="co"># the image and label features.</span>
+filenames &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;/var/data/file1.tfrecord&quot;</span>, <span class="st">&quot;/var/data/file2.tfrecord&quot;</span>)
+dataset &lt;-<span class="st"> </span><span class="kw">tfrecord_dataset</span>(filenames) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">dataset_map</span>(<span class="cf">function</span>(example_proto) {
+    features &lt;-<span class="st"> </span><span class="kw">list</span>(
+      <span class="dt">image =</span> tf<span class="op">$</span><span class="kw">FixedLenFeature</span>(<span class="kw">shape</span>(), tf<span class="op">$</span>string),
+      <span class="dt">label =</span> tf<span class="op">$</span><span class="kw">FixedLenFeature</span>(<span class="kw">shape</span>(), tf<span class="op">$</span>int32)
+    )
+    tf<span class="op">$</span><span class="kw">parse_single_example</span>(example_proto, features)
+  })</code></pre></div>
+</div>
+</div>
+<div id="transformations" class="section level2">
+<h2>Transformations</h2>
+<div id="mapping" class="section level3">
+<h3>Mapping</h3>
+<p>You can map arbitrary transformation functions onto dataset records using the <code>dataset_map()</code> function. For example, to transform the “Species” column into a one-hot encoded vector you would do this:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span>dataset <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_map</span>(<span class="cf">function</span>(record) {
+    record<span class="op">$</span>Species &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">one_hot</span>(record<span class="op">$</span>Species, 3L)
+    record
+  })</code></pre></div>
+<p>Note that while <code>dataset_map()</code> is defined using an R function, there are some special constraints on this function which allow it to execute <em>not within R</em> but rather within the TensorFlow graph.</p>
+<p>For a dataset created with the <code>csv_dataset()</code> function, the passed record will be named list of tensors (one for each column of the dataset). The return value should be another set of tensors which were created from TensorFlow functions (e.g. <code>tf$one_hot</code> as illustrated above). This function will be converted to a TensorFlow graph operation that performs the transformation within native code.</p>
+<div id="parallel-mapping" class="section level4">
+<h4>Parallel Mapping</h4>
+<p>If these transformations are computationally expensive they can be executed on multiple threads using the <code>num_parallel_calls</code> parameter. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span>dataset <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_map</span>(<span class="dt">num_parallel_calls =</span> <span class="dv">4</span>, <span class="cf">function</span>(record) {
+    record<span class="op">$</span>Species &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">one_hot</span>(record<span class="op">$</span>Species, 3L)
+    record
+  })</code></pre></div>
+<p>You can control the maximum number of processed elements that will be buffered when processing in parallel using the <code>dataset_prefetch()</code> transformation. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span>dataset <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_map</span>(<span class="dt">num_parallel_calls =</span> <span class="dv">4</span>, <span class="cf">function</span>(record) {
+    record<span class="op">$</span>Species &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">one_hot</span>(record<span class="op">$</span>Species, 3L)
+    record
+  }) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">datset_prefetch</span>(<span class="dv">100</span>)</code></pre></div>
+</div>
+</div>
+<div id="filtering" class="section level3">
+<h3>Filtering</h3>
+<p>You can filter the elements of a dataset using the <code>dataset_filter()</code> function, which takes a <code>predicate</code> function that returns a boolean tensor for records that should be included. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">csv_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">dataset_filter</span>(<span class="cf">function</span>(record) {
+    record<span class="op">$</span>mpg <span class="op">&gt;=</span><span class="st"> </span><span class="dv">20</span>
+})
+
+dataset &lt;-<span class="st"> </span><span class="kw">csv_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">dataset_filter</span>(<span class="cf">function</span>(record) {
+    record<span class="op">$</span>mpg <span class="op">&gt;=</span><span class="st"> </span><span class="dv">20</span> <span class="op">&amp;</span><span class="st"> </span>record<span class="op">$</span>cyl <span class="op">&gt;=</span><span class="st"> </span>6L
+  })</code></pre></div>
+<p>Note that the functions used inside the predicate must be tensor operations (e.g. <code>tf$not_equal</code>, <code>tf$less</code>, etc.). R generic methods for relational operators (e.g. &lt;, &gt;, &lt;=, etc.) and logical operators (e.g. !, &amp;, |, etc.) are provided so you can use shorthand syntax for most common comparisions (as illustrated above).</p>
+</div>
+<div id="features-and-response" class="section level3">
+<h3>Features and Response</h3>
+<p>A common transformation is taking a column oriented dataset (e.g. one created by <code>csv_dataset()</code> or <code>tfrecord_dataset()</code>) and transforming it into a two-element list with features (“x”) and response (“y”). You can use the <code>dataset_prepare()</code> function to do this type of transformation. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">mtcars_dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(<span class="dt">x =</span> <span class="kw">c</span>(mpg, disp), <span class="dt">y =</span> cyl)
+
+iris_dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;iris.csv&quot;</span>, <span class="dt">record_spec =</span> iris_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(<span class="dt">x =</span> <span class="op">-</span>Species, <span class="dt">y =</span> Species)</code></pre></div>
+<p>The <code>dataset_prepare()</code> function also accepts standard R formula syntax for defining features and response:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">mtcars_dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(cyl <span class="op">~</span><span class="st"> </span>mpg <span class="op">+</span><span class="st"> </span>disp)</code></pre></div>
+</div>
+<div id="shuffling-and-batching" class="section level3">
+<h3>Shuffling and Batching</h3>
+<p>There are several functions which control how batches are drawn from the dataset. For example, the following specifies that data will be drawn in batches of 128 from a shuffled window of 1000 records, and that the dataset will be repeated for 10 epochs:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span>dataset <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">1000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">10</span>)</code></pre></div>
+</div>
+<div id="complete-example" class="section level3">
+<h3>Complete Example</h3>
+<p>Here’s a complete example of using the various dataset transformation functions together. We’ll read the <code>mtcars</code> dataset from a CSV, filter it on some threshold values, map it into <code>x</code> and <code>y</code> components for modeling, and specify desired shuffling and batch iteration behavior:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">dataset_prefetch</span>(<span class="dv">1000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_filter</span>(<span class="cf">function</span>(record) {
+    record<span class="op">$</span>mpg <span class="op">&gt;=</span><span class="st"> </span><span class="dv">20</span> <span class="op">&amp;</span><span class="st"> </span>record<span class="op">$</span>cyl <span class="op">&gt;=</span><span class="st"> </span>6L
+  }) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(cyl <span class="op">~</span><span class="st"> </span>mpg <span class="op">+</span><span class="st"> </span>disp) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">1000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">10</span>)</code></pre></div>
+</div>
+</div>
+<div id="reading-datasets" class="section level2">
+<h2>Reading Datasets</h2>
+<p>You read batches of data from a dataset by using tensors that yield the next batch. You can obtain this tensor from a dataset via the <code>next_batch()</code> function. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(cyl <span class="op">~</span><span class="st"> </span>mpg <span class="op">+</span><span class="st"> </span>disp) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">20</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">5</span>)
+batch &lt;-<span class="st"> </span><span class="kw">next_batch</span>(dataset)
+batch</code></pre></div>
+<pre><code>$x
+Tensor(&quot;IteratorGetNext_13:0&quot;, shape=(?, 2), dtype=float32)
+
+$y
+Tensor(&quot;IteratorGetNext_13:1&quot;, shape=(?,), dtype=int32)</code></pre>
+<p>As you can see <code>batch</code> isn’t the data itself but rather a tensor that will yield the next batch of data when it is evaluated:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sess &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">Session</span>()
+sess<span class="op">$</span><span class="kw">run</span>(batch)</code></pre></div>
+<pre><code>$x
+     [,1] [,2]
+[1,] 21.0  160
+[2,] 21.0  160
+[3,] 22.8  108
+[4,] 21.4  258
+[5,] 18.7  360
+
+$y
+[1] 6 6 4 6 8</code></pre>
+</div>
+<div id="dataset-iteration" class="section level2">
+<h2>Dataset Iteration</h2>
+<p>If you are iterating over an entire dataset by evaluating the <code>next_batch()</code> tensor you will need to determine at what point to stop iteration. There are a couple of possible approaches to controlling/detecting when iteration should end.</p>
+<p>One approach is to create a dataset that yields batches infinitely (traversing the dataset multiple times with different batches randomly drawn). In this case you’d use another mechanism like a global step counter or detecting a learning plateau:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(tfdatasets)
+dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(<span class="dt">x =</span> <span class="kw">c</span>(mpg, disp), <span class="dt">y =</span> cyl) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">5000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>() <span class="co"># repeat infinitely</span>
+
+batch &lt;-<span class="st"> </span><span class="kw">next_batch</span>(dataset)
+
+steps &lt;-<span class="st"> </span><span class="dv">200</span>
+<span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span>steps) {
+  <span class="co"># use batch$x and batch$y tensors</span>
+}</code></pre></div>
+<p>The call to <code>dataset_repeat()</code> with no <code>count</code> parameter requests that the dataset be traversed infinitely.</p>
+<p>Another approach is to detect when all batches have been yielded from the dataset. When the tensor reaches the end of iteration a runtime error will occur. You can catch and ignore the error when it occurs by wrapping your iteration code in the <code>with_dataset()</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(tfdatasets)
+dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prepare</span>(<span class="dt">x =</span> <span class="kw">c</span>(mpg, disp), <span class="dt">y =</span> cyl) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">10</span>)
+  
+batch &lt;-<span class="st"> </span><span class="kw">next_batch</span>(dataset)
+
+<span class="kw">with_dataset</span>({
+  <span class="cf">while</span>(<span class="ot">TRUE</span>) {
+    <span class="co"># use batch$x and batch$y tensors</span>
+  }
+})</code></pre></div>
+</div>
+<div id="using-with-tfestimators" class="section level2">
+<h2>Using with tfestimators</h2>
+<p>Models created with <strong>tfestimators</strong> use an input function to consume data for training, evaluation, and prediction. For example, here is an example of using an input function to feed data from an in-memory R data frame to an estimators model:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">train</span>(
+  <span class="kw">input_fn</span>(mtcars, <span class="dt">features =</span> <span class="kw">c</span>(mpg, disp), <span class="dt">response =</span> cyl,
+           <span class="dt">batch_size =</span> <span class="dv">128</span>, <span class="dt">epochs =</span> <span class="dv">3</span>)
+)</code></pre></div>
+<p>If you are using <strong>tfdatasets</strong> with the <strong>tfestimators</strong> package, you can create an estimators input function directly from a dataset as follows:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">text_line_dataset</span>(<span class="st">&quot;mtcars.csv&quot;</span>, <span class="dt">record_spec =</span> mtcars_spec) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">3</span>)
+
+model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">train</span>(
+  <span class="kw">input_fn</span>(dataset, <span class="dt">features =</span> <span class="kw">c</span>(mpg, disp), <span class="dt">response =</span> cyl)
+)</code></pre></div>
+<p>Note that we don’t use the <code>dataset_prepare()</code> or <code>next_batch()</code> functions in this example. Rather, these functions are used under the hood to provide the <code>input_fn</code> interface expected by tfestimators models.</p>
+<p>As with <code>dataset_prepare()</code>, you can alternatively use an R formula to specify features and response:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">train</span>(
+  <span class="kw">input_fn</span>(dataset, cyl <span class="op">~</span><span class="st"> </span>mpg <span class="op">+</span><span class="st"> </span>disp)
+)</code></pre></div>
+</div>
+<div id="using-with-keras" class="section level2">
+<h2>Using with Keras</h2>
+<p>Keras models are often trained by passing in-memory arrays directly to the <code>fit</code> function. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">fit</span>(
+  x_train, y_train, 
+  <span class="dt">epochs =</span> <span class="dv">30</span>, 
+  <span class="dt">batch_size =</span> <span class="dv">128</span>
+)</code></pre></div>
+<p>However, this requires loading data into an R data frame or matrix before calling fit. You can use the <code>train_on_batch()</code> function to stream data one batch at a time, however the reading and processing of the input data is still being done serially and outside of native code.</p>
+<p>Alternatively, Keras enables you to pass a dataset directly as the <code>generator</code> argument to <code>fit_generator()</code> and <code>validate_generator()</code>. Here’s a complete example that uses datasets to read from TFRecord files containing MNIST digits:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(keras)
+<span class="kw">library</span>(tfdatasets)
+
+batch_size =<span class="st"> </span><span class="dv">128</span>
+epochs =<span class="st"> </span><span class="dv">20</span>
+steps_per_epoch =<span class="st"> </span><span class="dv">500</span>
+
+<span class="co"># function to read and preprocess mnist dataset</span>
+mnist_dataset &lt;-<span class="st"> </span><span class="cf">function</span>(filename) {
+  dataset &lt;-<span class="st"> </span><span class="kw">tfrecord_dataset</span>(filename) <span class="op">%&gt;%</span>
+<span class="st">    </span><span class="kw">dataset_map</span>(<span class="cf">function</span>(example_proto) {
+
+      <span class="co"># parse record</span>
+      features &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">parse_single_example</span>(
+        example_proto,
+        <span class="dt">features =</span> <span class="kw">list</span>(
+          <span class="dt">image_raw =</span> tf<span class="op">$</span><span class="kw">FixedLenFeature</span>(<span class="kw">shape</span>(), tf<span class="op">$</span>string),
+          <span class="dt">label =</span> tf<span class="op">$</span><span class="kw">FixedLenFeature</span>(<span class="kw">shape</span>(), tf<span class="op">$</span>int64)
+        )
+      )
+
+      <span class="co"># preprocess image</span>
+      image &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">decode_raw</span>(features<span class="op">$</span>image_raw, tf<span class="op">$</span>uint8)
+      image &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">cast</span>(image, tf<span class="op">$</span>float32) <span class="op">/</span><span class="st"> </span><span class="dv">255</span>
+
+      <span class="co"># convert label to one-hot</span>
+      label &lt;-<span class="st"> </span>tf<span class="op">$</span><span class="kw">one_hot</span>(tf<span class="op">$</span><span class="kw">cast</span>(features<span class="op">$</span>label, tf<span class="op">$</span>int32), 10L)
+
+      <span class="co"># return</span>
+      <span class="kw">list</span>(image, label)
+    }) <span class="op">%&gt;%</span>
+<span class="st">    </span><span class="kw">dataset_repeat</span>() <span class="op">%&gt;%</span>
+<span class="st">    </span><span class="kw">dataset_shuffle</span>(<span class="dv">10000</span>) <span class="op">%&gt;%</span>
+<span class="st">    </span><span class="kw">dataset_batch</span>(batch_size)
+}
+
+model &lt;-<span class="st"> </span><span class="kw">keras_model_sequential</span>() <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">layer_dense</span>(<span class="dt">units =</span> <span class="dv">256</span>, <span class="dt">activation =</span> <span class="st">'relu'</span>, <span class="dt">input_shape =</span> <span class="kw">c</span>(<span class="dv">784</span>)) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">layer_dropout</span>(<span class="dt">rate =</span> <span class="fl">0.4</span>) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">layer_dense</span>(<span class="dt">units =</span> <span class="dv">128</span>, <span class="dt">activation =</span> <span class="st">'relu'</span>) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">layer_dropout</span>(<span class="dt">rate =</span> <span class="fl">0.3</span>) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">layer_dense</span>(<span class="dt">units =</span> <span class="dv">10</span>, <span class="dt">activation =</span> <span class="st">'softmax'</span>)
+
+model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">compile</span>(
+  <span class="dt">loss =</span> <span class="st">'categorical_crossentropy'</span>,
+  <span class="dt">optimizer =</span> <span class="kw">optimizer_rmsprop</span>(),
+  <span class="dt">metrics =</span> <span class="kw">c</span>(<span class="st">'accuracy'</span>)
+)
+
+history &lt;-<span class="st"> </span>model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">fit_generator</span>(
+  <span class="dt">generator =</span> <span class="kw">mnist_dataset</span>(<span class="st">&quot;mnist/train.tfrecords&quot;</span>),
+  <span class="dt">steps_per_epoch =</span> steps_per_epoch,
+  <span class="dt">epochs =</span> epochs,
+  <span class="dt">validation_data =</span> <span class="kw">mnist_dataset</span>(<span class="st">&quot;mnist/validation.tfrecords&quot;</span>),
+  <span class="dt">validation_steps =</span> steps_per_epoch
+)
+
+score &lt;-<span class="st"> </span>model <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">evaluate_generator</span>(
+  <span class="dt">generator =</span> <span class="kw">mnist_dataset</span>(<span class="st">&quot;mnist/test.tfrecords&quot;</span>),
+  <span class="dt">steps =</span> steps_per_epoch
+)</code></pre></div>
+<p>Note that all data preprocessing (e.g. one-hot encoding of the response variable) is done within the <code>dataset_map()</code> operation.</p>
+</div>
+<div id="reading-multiple-files" class="section level2">
+<h2>Reading Multiple Files</h2>
+<p>If you have multiple input files you can process them in parallel both across machines (sharding) and/or on multiple threads per-machine (parallel reads with interleaving). The <code>read_files()</code> function provides a high-level interface to parallel file reading.</p>
+<p>The <code>read_files()</code> function takes a set of files and a read function along with various options to orchestrate parallel reading. For example, the following function reads all CSV files in a directory using the <code>text_line_dataset()</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dataset &lt;-<span class="st"> </span><span class="kw">read_files</span>(<span class="st">&quot;data/*.csv&quot;</span>, text_line_dataset, <span class="dt">record_spec =</span> mtcars_spec,
+                      <span class="dt">parallel_files =</span> <span class="dv">4</span>, <span class="dt">parallel_interleave =</span> <span class="dv">16</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prefetch</span>(<span class="dv">5000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">1000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">3</span>)</code></pre></div>
+<p>The <code>parallel_files</code> argument requests that 4 files be processed in parallel and the <code>parallel_interleave</code> argument requests that blocks of 16 consecutive records from each file be interleaved in the resulting dataset.</p>
+<p>Note that because we are processing files in parallel we <em>do not</em> pass the <code>parallel_records</code> argument to <code>text_line_dataset()</code>, since we are already parallelizing at the file level.</p>
+<div id="multiple-machines" class="section level3">
+<h3>Multiple Machines</h3>
+<p>If you are training on multiple machines and the training supervisor passes a shard index to your training script, you can also parallelizing reading by sharding the file list. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># command line flags for training script (shard info is passed by training </span>
+<span class="co"># supervisor that executes the script)</span>
+FLAGS &lt;-<span class="st"> </span><span class="kw">flags</span>(
+  <span class="kw">flag_integer</span>(<span class="st">&quot;num_shards&quot;</span>, <span class="dv">1</span>),
+  <span class="kw">flag_integeR</span>(<span class="st">&quot;shard_index&quot;</span>, <span class="dv">1</span>)
+)
+
+<span class="co"># forward shard info to read_files</span>
+dataset &lt;-<span class="st"> </span><span class="kw">read_files</span>(<span class="st">&quot;data/*.csv&quot;</span>, text_line_dataset, <span class="dt">record_spec =</span> mtcars_spec,
+                      <span class="dt">parallel_files =</span> <span class="dv">4</span>, <span class="dt">parallel_interleave =</span> <span class="dv">16</span>,
+                      <span class="dt">num_shards =</span> FLAGS<span class="op">$</span>num_shards, <span class="dt">shard_index =</span> FLAGS<span class="op">$</span>shard_index) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_prefetch</span>(<span class="dv">5000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_shuffle</span>(<span class="dv">1000</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_batch</span>(<span class="dv">128</span>) <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">dataset_repeat</span>(<span class="dv">3</span>)</code></pre></div>
+</div>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
