@@ -63,8 +63,6 @@
 #' })
 #' }
 #'
-#' @family reading datasets
-#'
 #' @export
 next_batch <- function(dataset) {
 
@@ -98,29 +96,81 @@ next_batch <- function(dataset) {
 #'   dataset_batch(128) %>%
 #'   dataset_repeat(10)
 #'
-#' batch <- next_batch(dataset)
+#' iter <- make_iterator_one_shot(dataset)
+#' next_batch <- iterator_get_next(iter)
 #'
 #' with_dataset({
 #'   while(TRUE) {
+#'     batch <- sess$run(next_batch)
 #'     # use batch$x and batch$y tensors
 #'   }
 #' })
 #' }
-#'
-#' @family reading datasets
 #'
 #' @export
 with_dataset <- function(expr) {
   tryCatch({
     force(expr)
   },
+  error = out_of_range_handler)
+}
+
+#' Execute code that traverses a dataset until an out of range condition occurs
+#'
+#' @param expr Expression to execute (will be executed multiple times until
+#' the condition occurs)
+#' @param e Error object
+#'
+#' @details  When a dataset iterator reaches the end, an out of range runtime error
+#'   will occur. This function will catch and ignore the error when it occurs.
+#'
+#' @examples \dontrun{
+#' library(tfdatasets)
+#' dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
+#'   dataset_batch(128) %>%
+#'   dataset_repeat(10) %>%
+#'   dataset_prepare(x = c(mpg, disp), y = cyl)
+#'
+#' iter <- make_iterator_one_shot(dataset)
+#' next_batch <- iterator_get_next(iter)
+#'
+#' until_out_of_range({
+#'   batch <- sess$run(next_batch)
+#'   # use batch$x and batch$y tensors
+#' })
+#' }
+#'
+#' @family reading datasets
+#'
+#' @export
+until_out_of_range <- function(expr) {
+
+  # determine the error message for 'break'
+  break_error <- tryCatch(eval(parse(text = "break")), error = function(e) e)
+
+  # get expression and parent frame
+  expr <- substitute(expr)
+  envir <- parent.frame()
+
+  # evaluate repeatedly (exit gracefully on break or out_of_range error)
+  tryCatch({
+    while(TRUE)
+      eval(expr, envir = envir)
+  },
   error = function(e) {
-    last_error <- py_last_error()
-    if (is.null(last_error) || !identical(last_error$type, "OutOfRangeError"))
-      stop(e$message, call. = FALSE)
+    if (!identical(e$message, break_error$message))
+      out_of_range_handler(e)
   })
 }
 
+
+#' @rdname until_out_of_range
+#' @export
+out_of_range_handler <- function(e) {
+  last_error <- py_last_error()
+  if (is.null(last_error) || !identical(last_error$type, "OutOfRangeError"))
+    stop(e$message, call. = FALSE)
+}
 
 
 

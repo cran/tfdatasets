@@ -4,13 +4,17 @@
 \alias{dataset_batch}
 \title{Combines consecutive elements of this dataset into batches.}
 \usage{
-dataset_batch(dataset, batch_size)
+dataset_batch(dataset, batch_size, drop_remainder = FALSE)
 }
 \arguments{
 \item{dataset}{A dataset}
 
 \item{batch_size}{An integer, representing the number of consecutive elements
 of this dataset to combine in a single batch.}
+
+\item{drop_remainder}{Ensure that batches have a fixed size by
+omitting any final smaller batch if it's present. Note that this is
+required for use with the Keras tensor inputs to fit/evaluate/etc.}
 }
 \value{
 A dataset
@@ -24,10 +28,13 @@ Other dataset methods: \code{\link{dataset_cache}},
   \code{\link{dataset_decode_delim}},
   \code{\link{dataset_filter}},
   \code{\link{dataset_interleave}},
+  \code{\link{dataset_map_and_batch}},
   \code{\link{dataset_map}},
   \code{\link{dataset_padded_batch}},
+  \code{\link{dataset_prefetch_to_device}},
   \code{\link{dataset_prefetch}},
   \code{\link{dataset_repeat}},
+  \code{\link{dataset_shuffle_and_repeat}},
   \code{\link{dataset_shuffle}},
   \code{\link{dataset_skip}}, \code{\link{dataset_take}}
 }

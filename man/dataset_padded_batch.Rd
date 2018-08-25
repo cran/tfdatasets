@@ -5,7 +5,7 @@
 \title{Combines consecutive elements of this dataset into padded batches}
 \usage{
 dataset_padded_batch(dataset, batch_size, padded_shapes,
-  padding_values = NULL)
+  padding_values = NULL, drop_remainder = FALSE)
 }
 \arguments{
 \item{dataset}{A dataset}
@@ -24,6 +24,10 @@ dimension in each batch.}
 tf$Tensor, representing the padding values to use for the respective
 components. Defaults are 0 for numeric types and the empty string for
 string types.}
+
+\item{drop_remainder}{Ensure that batches have a fixed size by
+omitting any final smaller batch if it's present. Note that this is
+required for use with the Keras tensor inputs to fit/evaluate/etc.}
 }
 \value{
 A dataset
@@ -41,9 +45,12 @@ Other dataset methods: \code{\link{dataset_batch}},
   \code{\link{dataset_decode_delim}},
   \code{\link{dataset_filter}},
   \code{\link{dataset_interleave}},
+  \code{\link{dataset_map_and_batch}},
   \code{\link{dataset_map}},
+  \code{\link{dataset_prefetch_to_device}},
   \code{\link{dataset_prefetch}},
   \code{\link{dataset_repeat}},
+  \code{\link{dataset_shuffle_and_repeat}},
   \code{\link{dataset_shuffle}},
   \code{\link{dataset_skip}}, \code{\link{dataset_take}}
 }

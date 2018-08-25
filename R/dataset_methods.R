@@ -40,23 +40,51 @@ dataset_shuffle <- function(dataset, buffer_size, seed = NULL) {
   ))
 }
 
+
+#' Shuffles and repeats a dataset returning a new permutation for each epoch.
+#'
+#' @inheritParams dataset_shuffle
+#' @inheritParams dataset_repeat
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_shuffle_and_repeat <- function(dataset, buffer_size, count = NULL, seed = NULL) {
+  validate_tf_version("1.8", "dataset_shuffle_and_repeat")
+  as_tf_dataset(dataset$apply(
+    tf$contrib$data$shuffle_and_repeat(
+      as_integer_tensor(buffer_size),
+      as_integer_tensor(count),
+      as_integer_tensor(seed)
+    )
+  ))
+}
+
 #' Combines consecutive elements of this dataset into batches.
 #'
 #' @param dataset A dataset
 #' @param batch_size An integer, representing the number of consecutive elements
 #'   of this dataset to combine in a single batch.
+#' @param drop_remainder Ensure that batches have a fixed size by
+#'   omitting any final smaller batch if it's present. Note that this is
+#'   required for use with the Keras tensor inputs to fit/evaluate/etc.
 #'
 #' @return A dataset
 #'
 #' @family dataset methods
 #'
 #' @export
-dataset_batch <- function(dataset, batch_size) {
-  as_tf_dataset(dataset$batch(
-    batch_size = as_integer_tensor(batch_size)
-  ))
+dataset_batch <- function(dataset, batch_size, drop_remainder = FALSE) {
+  if (drop_remainder) {
+    as_tf_dataset(dataset$apply(
+      tf$contrib$data$batch_and_drop_remainder(as_integer_tensor(batch_size))
+    ))
+  } else {
+    as_tf_dataset(dataset$batch(
+      batch_size = as_integer_tensor(batch_size)
+    ))
+  }
 }
-
 
 #' Caches the elements in this dataset.
 #'
@@ -141,6 +169,41 @@ dataset_map <- function(dataset, map_func, num_parallel_calls = NULL) {
 }
 
 
+#' Fused implementation of dataset_map() and dataset_batch()
+#'
+#' Maps `map_func`` across batch_size consecutive elements of this dataset and then combines
+#' them into a batch. Functionally, it is equivalent to map followed by batch. However, by
+#' fusing the two transformations together, the implementation can be more efficient.
+#'
+#' @inheritParams dataset_map
+#' @inheritParams dataset_batch
+#' @param num_parallel_batches  (Optional) An integer, representing the number of batches
+#'   to create in parallel. On one hand, higher values can help mitigate the effect of
+#'   stragglers. On the other hand, higher values can increase contention if CPU is
+#'   scarce.
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_map_and_batch <- function(dataset,
+                                  map_func,
+                                  batch_size,
+                                  num_parallel_batches = NULL,
+                                  drop_remainder = FALSE,
+                                  num_parallel_calls = NULL) {
+  validate_tf_version("1.8", "dataset_map_and_batch")
+  as_tf_dataset(dataset$apply(
+    tf$contrib$data$map_and_batch(
+      map_func,
+      as.integer(batch_size),
+      as_integer_tensor(num_parallel_batches),
+      drop_remainder,
+      as_integer_tensor(num_parallel_calls)
+    )
+  ))
+}
+
+
 #' Maps map_func across this dataset and flattens the result.
 #'
 #' @param dataset A dataset
@@ -172,6 +235,33 @@ dataset_flat_map <- function(dataset, map_func) {
 #' @export
 dataset_prefetch <- function(dataset, buffer_size) {
   as_tf_dataset(dataset$prefetch(as_integer_tensor(buffer_size)))
+}
+
+
+#' A transformation that prefetches dataset values to the given `device`
+#'
+#' @param dataset A dataset
+#' @param device A string. The name of a device to which elements will be prefetched
+#'   (e.g. "/gpu:0").
+#' @param buffer_size (Optional.) The number of elements to buffer on device.
+#'   Defaults to an automatically chosen value.
+#'
+#' @return A dataset
+#'
+#' @note Although the transformation creates a dataset, the transformation must be the
+#'   final dataset in the input pipeline.
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_prefetch_to_device <- function(dataset, device, buffer_size = NULL) {
+  validate_tf_version("1.8", "dataset_prefetch_to_device")
+  as_tf_dataset(dataset$apply(
+    tf$contrib$data$prefetch_to_device(
+      device = device,
+      buffer_size = as_integer_tensor(buffer_size)
+    )
+  ))
 }
 
 
@@ -317,6 +407,8 @@ dataset_shard <- function(dataset, num_shards, index) {
 #' resulting element have an additional outer dimension, and are padded to the
 #' respective shape in `padded_shapes`.
 #'
+#' @inheritParams dataset_batch
+#'
 #' @param dataset A dataset
 #' @param batch_size An integer, representing the number of consecutive elements
 #'   of this dataset to combine in a single batch.
@@ -336,12 +428,23 @@ dataset_shard <- function(dataset, num_shards, index) {
 #' @family dataset methods
 #'
 #' @export
-dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_values = NULL) {
-  as_tf_dataset(dataset$padded_batch(
-    batch_size = as_integer_tensor(batch_size),
-    padded_shapes = as_tensor_shapes(padded_shapes),
-    padding_values = as_integer_tensor(padding_values)
-  ))
+dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_values = NULL,
+                                 drop_remainder = FALSE) {
+  if (drop_remainder) {
+    as_tf_dataset(dataset$apply(
+      tf$contrib$data$padded_batch_and_drop_remainder(
+        as_integer_tensor(batch_size),
+        as_tensor_shapes(padded_shapes),
+        as_integer_tensor(padding_values)
+      )
+    ))
+  } else {
+    as_tf_dataset(dataset$padded_batch(
+      batch_size = as_integer_tensor(batch_size),
+      padded_shapes = as_tensor_shapes(padded_shapes),
+      padding_values = as_integer_tensor(padding_values)
+    ))
+  }
 }
 
 
@@ -368,6 +471,12 @@ dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_val
 #'   default) all features will be stacked into a single 2D tensor so need to
 #'   have the same underlying data type.
 #'
+#' @param batch_size (Optional). Batch size if you would like to fuse the
+#'   `dataset_prepare()` operation together with a `dataset_batch()` (fusing
+#'   generally improves overall training performance).
+#'
+#' @inheritParams dataset_map_and_batch
+#'
 #' @return A dataset. The dataset will have a structure of either:
 #'
 #'   - When `named_features` is `TRUE`: `list(x = list(feature_name = feature_values, ...), y = response_values)`
@@ -381,7 +490,10 @@ dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_val
 #'
 #' @export
 dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features = FALSE,
-                            parallel_records = NULL) {
+                            parallel_records = NULL,
+                            batch_size = NULL,
+                            num_parallel_batches = NULL,
+                            drop_remainder = FALSE) {
 
   # validate dataset
   if (!is_dataset(dataset))
@@ -431,46 +543,58 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
     }
   }
 
-  # transform for feature/response selection
+  # mapping function
+  map_func <- function(record) {
 
-  dataset <- dataset %>%
+    # select features
+    record_features <- record[feature_cols]
 
-    dataset_map(num_parallel_calls = parallel_records, function(record) {
+    # apply names to features if named
+    if (named_features) {
 
-      # select features
-      record_features <- record[feature_cols]
+      names(record_features) <- feature_col_names
 
-      # apply names to features if named
-      if (named_features) {
+      # otherwise stack features into a single tensor
+    } else {
+      record_features <- unname(record_features)
+      # determine the axis based on the shape of the tensor
+      # (unbatched tensors will be scalar with no shape,
+      #  so will stack on axis 0)
+      shape <- record_features[[1]]$get_shape()$as_list()
+      axis <- length(shape)
+      record_features <- tf$stack(record_features, axis = axis)
+    }
 
-        names(record_features) <- feature_col_names
+    # massage the record into the approriate structure
+    if (!is.null(response_col)) {
+      record <- list(record_features, record[[response_col]])
+      if (named)
+        names(record) <- c("x", "y")
+    }
+    else {
+      record <- list(record_features)
+      if (named)
+        names(record) <- c("x")
+    }
 
-        # otherwise stack features into a single tensor
-      } else {
-        record_features <- unname(record_features)
-        # determine the axis based on the shape of the tensor
-        # (unbatched tensors will be scalar with no shape,
-        #  so will stack on axis 0)
-        shape <- record_features[[1]]$get_shape()$as_list()
-        axis <- length(shape)
-        record_features <- tf$stack(record_features, axis = axis)
-      }
+    # return the record
+    record
+  }
 
-      # massage the record into the approriate structure
-      if (!is.null(response_col)) {
-        record <- list(record_features, record[[response_col]])
-        if (named)
-          names(record) <- c("x", "y")
-      }
-      else {
-        record <- list(record_features)
-        if (named)
-          names(record) <- c("x")
-      }
 
-      # return the record
-      record
-    })
+  # call appropriate mapping funciton
+  if (is.null(batch_size)) {
+    dataset <- dataset %>%
+      dataset_map(map_func = map_func,
+                  num_parallel_calls = parallel_records)
+  } else {
+    dataset <- dataset %>%
+      dataset_map_and_batch(map_func = map_func,
+                            batch_size = batch_size,
+                            num_parallel_batches = num_parallel_batches,
+                            drop_remainder = drop_remainder,
+                            num_parallel_calls = parallel_records)
+  }
 
   # return dataset
   as_tf_dataset(dataset)
@@ -502,91 +626,6 @@ as_tf_dataset <- function(dataset) {
 
   # return
   dataset
-}
-
-
-#' @importFrom utils str capture.output
-#' @export
-str.tf_dataset <- function(object, width = getOption("width"), preview_cols = 100, ...) {
-
-  # print NULL for null xptr
-  if (reticulate::py_is_null_xptr(object)) {
-    cat(reticulate::py_str(object), "\n")
-    return(invisible(NULL))
-  }
-
-  # batch the dataset if necessary so we can draw from it
-  if (!dataset_is_batched(object)) {
-    object <- object %>%
-      dataset_batch(50)
-  }
-
-  # take the batch for previewing
-  columns <- with_session(function(sess) {
-    sess$run(next_batch(object))
-  })
-
-  # if we aren't named and rectangular then delegate and return
-  is_named <- !is.null(names(columns))
-  is_rectangular <-
-    is.list(object$output_shapes) &&
-    all(sapply(object$output_shapes, function(shape) {
-      length(shape$as_list()) == 1
-    }))
-  if (!is_named || !is_rectangular) {
-    cat(py_str(object), "\n")
-    return(invisible(NULL))
-  }
-
-  cat("TensorFlow Dataset\n")
-
-  # get column names and types
-  padded_column <- function(column) {
-    sprintf(paste0("%-", max(nchar(column)), "s"), column)
-  }
-  col_names <- padded_column(names(columns))
-  col_types <- sapply(object$output_types, function(type) {
-    type_str <- strsplit(py_str(type), "'")[[1]][[2]]
-    paste0("<tf.", type_str, ">")
-  })
-  col_types <- padded_column(col_types)
-
-  # determine space taken by them and compute width
-  col_spaces <- max(nchar(col_names)) + max(nchar(col_types)) + 5
-
-  # get the column data previews
-  col_previews <- sapply(columns, function(column) {
-    capture.output(
-      str(
-        column,
-        no.list = TRUE,
-        give.head = FALSE,
-        vec.len = 50,
-        width = width - col_spaces,
-        strict.width = "cut"
-      )
-    )
-  })
-
-  # produce output (truncate on max previews)
-  num_cols <- min(length(col_names), preview_cols)
-  cat(paste(col_names[1:num_cols],
-            ":",
-            col_types[1:num_cols],
-            col_previews[1:num_cols],
-            collapse = "\n"))
-
-  # footer if we have excess columns
-  extra_cols <- length(col_names) - preview_cols
-  if (extra_cols > 0) {
-    cat("\n# ... with", extra_cols, "more columns:\n")
-    cols <- paste(trimws(col_names[-(1:preview_cols)]),
-                  trimws(col_types[-(1:preview_cols)]))
-    cols <- paste0(cols, collapse = ", ")
-    cols <- paste(paste("#  ", strwrap(cols, width = 0.9 * width)),
-                  collapse = "\n")
-    cat(cols)
-  }
 }
 
 
