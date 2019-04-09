@@ -52,7 +52,7 @@ dataset_shuffle <- function(dataset, buffer_size, seed = NULL) {
 dataset_shuffle_and_repeat <- function(dataset, buffer_size, count = NULL, seed = NULL) {
   validate_tf_version("1.8", "dataset_shuffle_and_repeat")
   as_tf_dataset(dataset$apply(
-    tf$contrib$data$shuffle_and_repeat(
+    tfd_shuffle_and_repeat(
       as_integer_tensor(buffer_size),
       as_integer_tensor(count),
       as_integer_tensor(seed)
@@ -74,16 +74,22 @@ dataset_shuffle_and_repeat <- function(dataset, buffer_size, count = NULL, seed 
 #' @family dataset methods
 #'
 #' @export
-dataset_batch <- function(dataset, batch_size, drop_remainder = FALSE) {
-  if (drop_remainder) {
-    as_tf_dataset(dataset$apply(
-      tf$contrib$data$batch_and_drop_remainder(as_integer_tensor(batch_size))
-    ))
-  } else {
-    as_tf_dataset(dataset$batch(
-      batch_size = as_integer_tensor(batch_size)
-    ))
-  }
+dataset_batch <-
+  function(dataset, batch_size, drop_remainder = FALSE) {
+    if (tensorflow::tf_version() > "1.9") {
+      as_tf_dataset(
+        dataset$batch(batch_size = as_integer_tensor(batch_size),
+                      drop_remainder = drop_remainder)
+      )
+    } else {
+      if (drop_remainder) {
+        as_tf_dataset(dataset$apply(
+          tf$contrib$data$batch_and_drop_remainder(as_integer_tensor(batch_size))
+        ))
+      } else {
+        as_tf_dataset(dataset$batch(batch_size = as_integer_tensor(batch_size)))
+      }
+    }
 }
 
 #' Caches the elements in this dataset.
@@ -193,7 +199,7 @@ dataset_map_and_batch <- function(dataset,
                                   num_parallel_calls = NULL) {
   validate_tf_version("1.8", "dataset_map_and_batch")
   as_tf_dataset(dataset$apply(
-    tf$contrib$data$map_and_batch(
+    tfd_map_and_batch(
       map_func,
       as.integer(batch_size),
       as_integer_tensor(num_parallel_batches),
@@ -257,7 +263,7 @@ dataset_prefetch <- function(dataset, buffer_size) {
 dataset_prefetch_to_device <- function(dataset, device, buffer_size = NULL) {
   validate_tf_version("1.8", "dataset_prefetch_to_device")
   as_tf_dataset(dataset$apply(
-    tf$contrib$data$prefetch_to_device(
+    tfd_prefetch_to_device(
       device = device,
       buffer_size = as_integer_tensor(buffer_size)
     )
@@ -442,7 +448,7 @@ dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_val
     as_tf_dataset(dataset$padded_batch(
       batch_size = as_integer_tensor(batch_size),
       padded_shapes = as_tensor_shapes(padded_shapes),
-      padding_values = as_integer_tensor(padding_values)
+      padding_values = padding_values
     ))
   }
 }
@@ -582,7 +588,7 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
   }
 
 
-  # call appropriate mapping funciton
+  # call appropriate mapping function
   if (is.null(batch_size)) {
     dataset <- dataset %>%
       dataset_map(map_func = map_func,

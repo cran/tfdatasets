@@ -1,9 +1,11 @@
 Package: tfdatasets
 Type: Package
 Title: Interface to 'TensorFlow' Datasets
-Version: 1.9
+Version: 1.13.1
 Authors@R: c(
-  person("JJ", "Allaire", role = c("aut", "cre"),
+  person("Daniel", "Falbel", role = c("ctb", "cph", "cre"), 
+         email = "daniel@rstudio.com"),
+  person("JJ", "Allaire", role = c("aut", "cph"),
          email = "jj@rstudio.com"),
   person("Yuan", "Tang", role = c("aut"),
          email = "terrytangyuan@gmail.com",
@@ -24,18 +26,19 @@ SystemRequirements: TensorFlow >= 1.4 (https://www.tensorflow.org/)
 Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.1)
-Imports: reticulate (>= 1.10), tensorflow (>= 1.9), magrittr, rlang,
+Imports: reticulate (>= 1.10), tensorflow (>= 1.13.1), magrittr, rlang,
         tidyselect, stats
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
 Suggests: testthat, knitr, tfestimators, keras
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2018-08-25 12:24:04 UTC; jjallaire
-Author: JJ Allaire [aut, cre],
+Packaged: 2019-04-09 02:27:16 UTC; dfalbel
+Author: Daniel Falbel [ctb, cph, cre],
+  JJ Allaire [aut, cph],
   Yuan Tang [aut] (<https://orcid.org/0000-0001-5243-233X>),
   Kevin Ushey [aut],
   RStudio [cph, fnd],
   Google Inc. [cph]
-Maintainer: JJ Allaire <jj@rstudio.com>
+Maintainer: Daniel Falbel <daniel@rstudio.com>
 Repository: CRAN
-Date/Publication: 2018-08-25 13:20:03 UTC
+Date/Publication: 2019-04-09 11:50:03 UTC

@@ -89,10 +89,17 @@ test_succeeds("dataset_filter narrows the dataset", {
     }) %>%
     dataset_batch(1000)
 
-  sess <- tf$Session()
-  on.exit(sess$close(), add = TRUE)
   batch <- next_batch(dataset)
-  expect_length(sess$run(batch)$mpg, 3)
+
+  res <- if (tf$executing_eagerly()) {
+    batch$mpg
+  } else {
+    with_session(function (sess) {
+      sess$run(batch)$mpg
+    })
+  }
+
+  expect_length(res, 3)
 })
 
 test_succeeds("dataset_interleave yields a dataset" , {
@@ -109,10 +116,34 @@ test_succeeds("dataset_shard yields a dataset" , {
     dataset_shard(num_shards = 4, index = 1) %>%
     dataset_batch(8)
 
-  sess <- tf$Session()
-  on.exit(sess$close(), add = TRUE)
   batch <- next_batch(dataset)
-  expect_length(sess$run(batch)$mpg, 8)
+
+  res <- if (tf$executing_eagerly()) {
+    batch$mpg
+  } else {
+    with_session(function (sess) {
+      sess$run(batch)$mpg
+    })
+  }
+
+  expect_length(res, 8)
+
+})
+
+test_succeeds("dataset_padded_batch returns a dataset", {
+
+  dataset <- tensor_slices_dataset(matrix(1.1:8.1, ncol = 2)) %>%
+    dataset_padded_batch(
+      batch_size = 2,
+      padded_shapes = tf$constant(3L, shape = shape(1L), dtype = tf$int32),
+      padding_values = tf$constant(77.1, dtype = tf$float64))
+
+  dataset <- tensor_slices_dataset(matrix(1:8, ncol = 2)) %>%
+    dataset_padded_batch(
+      batch_size = 2,
+      padded_shapes = tf$constant(3L, shape = shape(1L), dtype = tf$int32),
+      padding_values = tf$constant(77L))
+
 
 })
 

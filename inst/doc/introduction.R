@@ -2,7 +2,7 @@
 knitr::opts_chunk$set(eval = FALSE)
 
 ## ---- eval=FALSE---------------------------------------------------------
-#  install.packages("tfdatasets")
+#  devtools::install_github("rstudio/tfdatasets")
 
 ## ---- eval=FALSE---------------------------------------------------------
 #  library(tfdtasets)

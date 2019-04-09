@@ -36,14 +36,25 @@
 #' @name make-iterator
 #' @export
 make_iterator_one_shot <- function(dataset) {
-  dataset$make_one_shot_iterator()
+
+  if (tensorflow::tf_version() > "1.12") {
+    tf$compat$v1$data$make_one_shot_iterator(dataset)
+  } else {
+    dataset$make_one_shot_iterator()
+  }
+
 }
 
 
 #' @rdname make-iterator
 #' @export
 make_iterator_initializable <- function(dataset, shared_name = NULL) {
-  dataset$make_initializable_iterator(shared_name = shared_name)
+
+  if (tensorflow::tf_version() > "1.13") {
+    tf$compat$v1$data$make_initializable_iterator(dataset, shared_name = shared_name)
+  } else {
+    dataset$make_initializable_iterator(shared_name = shared_name)
+  }
 }
 
 
@@ -52,22 +63,40 @@ make_iterator_initializable <- function(dataset, shared_name = NULL) {
 #' @export
 make_iterator_from_structure <- function(output_types, output_shapes = NULL,
                                          shared_name = NULL) {
-  tf$data$Iterator$from_structure(
-    output_types = output_types,
-    output_shapes = output_shapes,
-    shared_name = shared_name
-  )
+
+  if (tensorflow::tf_version() > "1.12") {
+    tf$compat$v1$data$Iterator$from_structure(
+      output_types = output_types,
+      output_shapes = output_shapes,
+      shared_name = shared_name
+    )
+  } else {
+    tf$data$Iterator$from_structure(
+      output_types = output_types,
+      output_shapes = output_shapes,
+      shared_name = shared_name
+    )
+  }
 }
 
 #' @rdname make-iterator
 #' @export
 make_iterator_from_string_handle <- function(string_handle, output_types,
                                              output_shapes = NULL) {
-  tf$data$Iterator$from_string_handle(
-    string_handle = string_handle,
-    output_types = output_types,
-    output_shapes = output_shapes
-  )
+
+  if (tensorflow::tf_version() > "1.12") {
+    tf$compat$v1$data$Iterator$from_string_handle(
+      string_handle = string_handle,
+      output_types = output_types,
+      output_shapes = output_shapes
+    )
+  } else {
+    tf$data$Iterator$from_string_handle(
+      string_handle = string_handle,
+      output_types = output_types,
+      output_shapes = output_shapes
+    )
+  }
 }
 
 #' Get next element from iterator
