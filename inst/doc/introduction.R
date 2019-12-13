@@ -241,37 +241,6 @@ knitr::opts_chunk$set(eval = FALSE)
 #  print(score)
 
 ## ------------------------------------------------------------------------
-#  model %>% train(
-#    input_fn(mtcars, features = c(mpg, disp), response = cyl,
-#             batch_size = 128, epochs = 3)
-#  )
-
-## ------------------------------------------------------------------------
-#  library(tfestimators)
-#  library(tfdatasets)
-#  
-#  mtcars_spec <- csv_record_spec("mtcars.csv")
-#  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
-#    dataset_batch(128) %>%
-#    dataset_repeat(3)
-#  
-#  cols <- feature_columns(
-#    column_numeric("mpg"),
-#    column_numeric("disp")
-#  )
-#  
-#  model <- linear_regressor(feature_columns = cols)
-#  
-#  model %>% train(
-#    input_fn(dataset, features = c(mpg, disp), response = cyl)
-#  )
-
-## ------------------------------------------------------------------------
-#  model %>% train(
-#    input_fn(dataset, cyl ~ mpg + disp)
-#  )
-
-## ------------------------------------------------------------------------
 #  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_prepare(cyl ~ mpg + disp) %>%
 #    dataset_shuffle(20) %>%
@@ -366,5 +335,5 @@ knitr::opts_chunk$set(eval = FALSE)
 #                        num_shards = FLAGS$num_shards, shard_index = FLAGS$shard_index) %>%
 #    dataset_shuffle_and_repeat(buffer_size = 1000, count = 3) %>%
 #    dataset_batch(128) %>%
-#    dataset_prefetch(1) %>%
+#    dataset_prefetch(1)
 

@@ -1,5 +1,4 @@
 
-
 #' Repeats a dataset count times.
 #'
 #' @param dataset A dataset
@@ -27,17 +26,29 @@ dataset_repeat <- function(dataset, count = NULL) {
 #'   dataset from which the new dataset will sample.
 #' @param seed (Optional) An integer, representing the random seed that will be
 #'   used to create the distribution.
-#'
+#' @param reshuffle_each_iteration (Optional) A boolean, which if true indicates
+#'   that the dataset should be pseudorandomly reshuffled each time it is iterated
+#'   over. (Defaults to `TRUE`). Not used if TF version < 1.15
 #' @return A dataset
 #'
 #' @family dataset methods
 #'
 #' @export
-dataset_shuffle <- function(dataset, buffer_size, seed = NULL) {
-  as_tf_dataset(dataset$shuffle(
+dataset_shuffle <- function(dataset, buffer_size, seed = NULL, reshuffle_each_iteration = NULL) {
+
+  if (!is.null(reshuffle_each_iteration) && tensorflow::tf_version() < "1.15")
+    warning("reshuffle_each_iteration is only used with TF >= 1.15", call. = FALSE)
+
+  args <- list(
     buffer_size = as_integer_tensor(buffer_size),
     seed = as_integer_tensor(seed)
-  ))
+  )
+
+  if (tensorflow::tf_version() >= "1.15")
+    args[["reshuffle_each_iteration"]] <- reshuffle_each_iteration
+
+
+  as_tf_dataset(do.call(dataset$shuffle, args))
 }
 
 
@@ -157,7 +168,8 @@ dataset_take <- function(dataset, count) {
 #' @param dataset A dataset
 #' @param map_func A function mapping a nested structure of tensors (having
 #'   shapes and types defined by [output_shapes()] and [output_types()] to
-#'   another nested structure of tensors.
+#'   another nested structure of tensors. It also supports `purrr` style
+#'   lambda functions powered by [rlang::as_function()].
 #' @param num_parallel_calls (Optional) An integer, representing the
 #'   number of elements to process in parallel If not specified, elements will
 #'   be processed sequentially.
@@ -169,7 +181,7 @@ dataset_take <- function(dataset, count) {
 #' @export
 dataset_map <- function(dataset, map_func, num_parallel_calls = NULL) {
   as_tf_dataset(dataset$map(
-    map_func = map_func,
+    map_func = as_py_function(map_func),
     num_parallel_calls = as_integer_tensor(num_parallel_calls, tf$int32)
   ))
 }
@@ -200,7 +212,7 @@ dataset_map_and_batch <- function(dataset,
   validate_tf_version("1.8", "dataset_map_and_batch")
   as_tf_dataset(dataset$apply(
     tfd_map_and_batch(
-      map_func,
+      as_py_function(map_func),
       as.integer(batch_size),
       as_integer_tensor(num_parallel_batches),
       drop_remainder,
@@ -306,7 +318,7 @@ dataset_prefetch_to_device <- function(dataset, device, buffer_size = NULL) {
 #'
 #' @export
 dataset_filter <- function(dataset, predicate) {
-  as_tf_dataset(dataset$filter(predicate))
+  as_tf_dataset(dataset$filter(as_py_function(predicate)))
 }
 
 
@@ -377,7 +389,7 @@ dataset_skip <- function(dataset, count) {
 #' @export
 dataset_interleave <- function(dataset, map_func, cycle_length, block_length = 1) {
   as_tf_dataset(dataset$interleave(
-    map_func = map_func,
+    map_func = as_py_function(map_func),
     cycle_length = as_integer_tensor(cycle_length),
     block_length = as_integer_tensor(block_length)
   ))
@@ -505,27 +517,29 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
   if (!is_dataset(dataset))
     stop("Provided dataset is not a TensorFlow Dataset")
 
-  # get tidyselect_data for overscope
-  tidyselect <- asNamespace("tidyselect")
-  exports <- getNamespaceExports(tidyselect)
-  tidyselect_data <- mget(exports, tidyselect, inherits = TRUE)
-
   # default to null response_col
   response_col <- NULL
 
   # get features
   col_names <- column_names(dataset)
-  eq_features <- enquo(x)
-  environment(eq_features) <- as_overscope(eq_features, data = tidyselect_data)
+  eq_features <- rlang::enquo(x)
 
   # attempt use of tidyselect. if there is an error it could be because 'x'
   # is a formula. in that case attempt to parse the formula
   feature_col_names <- tryCatch({
-    vars_select(col_names, !! eq_features)
+    tidyselect::vars_select(col_names, !! eq_features)
   },
   error = function(e) {
+
+
+    x <- get_expr(eq_features)
     if (is_formula(x)) {
-      parsed <- parse_formula(x)
+
+      data <- lapply(column_names(dataset), function(x) "")
+      names(data) <- column_names(dataset)
+      data <- as.data.frame(data)
+
+      parsed <- parse_formula(x, data)
       if (!is.null(parsed$response))
         response_col <<- match(parsed$response, col_names)
       parsed$features
@@ -537,11 +551,11 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
   # get column indexes
   feature_cols <- match(feature_col_names, col_names)
 
+
   # get response if specified
   if (!missing(y) && is.null(response_col)) {
-    eq_response <- enquo(y)
-    environment(eq_response) <- as_overscope(eq_response, data = tidyselect_data)
-    response_name <- vars_select(col_names, !! eq_response)
+    eq_response <- rlang::enquo(y)
+    response_name <- tidyselect::vars_select(col_names, !! eq_response)
     if (length(response_name) > 0) {
       if (length(response_name) != 1)
         stop("Invalid response column: ", paste(response_name))
@@ -551,6 +565,11 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
 
   # mapping function
   map_func <- function(record) {
+
+    # `make_csv_dataset` returns an ordered dict instead of a `dict`
+    # which in turn doesn't get automatically converted by reticulate.
+    if (inherits(record, "python.builtin.dict"))
+      record <- reticulate::py_to_r(record)
 
     # select features
     record_features <- record[feature_cols]
@@ -635,6 +654,62 @@ as_tf_dataset <- function(dataset) {
 }
 
 
+#' Combines input elements into a dataset of windows.
+#'
+#' @param dataset A dataset
+#' @param size representing the number of elements of the input dataset to
+#'    combine into a window.
+#' @param shift epresenting the forward shift of the sliding window in each
+#'    iteration. Defaults to `size`.
+#' @param stride representing the stride of the input elements in the sliding
+#'    window.
+#' @param drop_remainder representing whether a window should be dropped in
+#'    case its size is smaller `than window_size`.
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_window <- function(dataset, size, shift = NULL, stride = 1,
+                           drop_remainder = FALSE) {
+  as_tf_dataset(
+    dataset$window(
+      size = as_integer_tensor(size),
+      shift = as_integer_tensor(shift),
+      stride = as_integer_tensor(stride),
+      drop_remainder = drop_remainder
+    )
+  )
+}
 
+#' Collects a dataset
+#'
+#' Iterates throught the dataset collecting every element into a list.
+#' It's useful for looking at the full result of the dataset.
+#' Note: You may run out of memory if your dataset is too big.
+#'
+#' @param dataset A dataset
+#' @param iter_max Maximum number of iterations. `Inf` until the end of the
+#'  dataset
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_collect <- function(dataset, iter_max = Inf) {
 
+  if (tensorflow::tf_version() < "2.0")
+    stop("dataset_collect requires TF 2.0", call.=FALSE)
+
+  it <- reticulate::as_iterator(dataset)
+
+  out <- list()
+  i <- 0
+
+  while(!is.null(x <- reticulate::iter_next(it))) {
+    i <- i + 1
+    out[[i]] <- x
+    if (i >= iter_max) break
+  }
+
+  out
+}
 

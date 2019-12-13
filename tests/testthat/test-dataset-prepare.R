@@ -46,7 +46,29 @@ test_succeeds("dataset_prepare can return an unnamed list", {
   expect_null(names(batch))
 })
 
+test_succeeds("dataset_prepare can use names from a string", {
+  batch <- mtcars_dataset() %>%
+    dataset_prepare(x = colnames(mtcars)[c(1,3)], named = TRUE) %>%
+    next_batch()
+
+  expect_length(setdiff(names(batch), c("x")), 0)
+})
+
+test_succeeds("dataset_prepare can use names from unquoting", {
+
+  x <- c("disp", "mpg")
+
+  batch <- mtcars_dataset() %>%
+    dataset_prepare(x = !!x, named = TRUE) %>%
+    next_batch()
+
+  expect_length(setdiff(names(batch), c("x")), 0)
+})
+
 test_succeeds("dataset_prepare can provide keras input tensors", {
+
+  if (tensorflow::tf_version() < "1.13")
+    skip("dataset_prepare required TF >= 1.13")
 
   # create dataset
   dataset <- csv_dataset("data/iris.csv") %>%
@@ -62,7 +84,7 @@ test_succeeds("dataset_prepare can provide keras input tensors", {
   # stream batches from dataset
   train_batch <- next_batch(dataset)
 
-  if (tensorflow::tf_version() >= "2.0") {
+  if (tensorflow::tf_version() >= "1.14" && tensorflow::tf$executing_eagerly()) {
 
     # You should not pass an EagerTensor to `Input`.
     # For example, instead of creating an InputLayer, you should instantiate your model and directly

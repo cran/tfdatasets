@@ -27,10 +27,17 @@ as_tensor_shapes <- function(x) {
 }
 
 with_session <- function(f, session = NULL) {
-  if (is.null(session))
-    session <- tf$get_default_session()
   if (is.null(session)) {
-    session <- tf$Session()
+    if (tensorflow::tf_version() >= "1.14")
+      session <- tensorflow::tf$compat$v1$get_default_session()
+  } else {
+    session <- tf$get_default_session()
+  }
+  if (is.null(session)) {
+    if (tensorflow::tf_version() >= "1.14")
+      session <- tf$compat$v1$Session()
+    else
+      session <- tf$Session()
     on.exit(session$close(), add = TRUE)
   }
   f(session)
@@ -53,9 +60,17 @@ validate_tf_version <- function(required_ver = "1.4", feature_name = "tfdatasets
 }
 
 column_names <- function(dataset) {
-  if (!is.list(dataset$output_shapes) || is.null(names(dataset$output_shapes)))
+
+  if (tensorflow::tf_version() >= "2.0") {
+    x <- next_batch(dataset)
+  } else {
+    x <- dataset$output_shapes
+  }
+
+  if (!is.list(x) || is.null(names(x)))
     stop("Unable to resolve features for dataset that does not have named outputs", call. = FALSE)
-  names(dataset$output_shapes)
+
+  names(x)
 }
 
 is_dataset <- function(x) {
@@ -72,5 +87,12 @@ is_eager_tensor <- function(x) {
   inherits(x, "tensorflow.python.framework.ops.EagerTensor")
 }
 
+as_py_function <- function(x) {
+  if (inherits(x, "python.builtin.function")) {
+    x
+  } else {
+    rlang::as_function(x)
+  }
+}
 
 

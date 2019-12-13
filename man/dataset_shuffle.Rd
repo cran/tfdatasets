@@ -4,7 +4,12 @@
 \alias{dataset_shuffle}
 \title{Randomly shuffles the elements of this dataset.}
 \usage{
-dataset_shuffle(dataset, buffer_size, seed = NULL)
+dataset_shuffle(
+  dataset,
+  buffer_size,
+  seed = NULL,
+  reshuffle_each_iteration = NULL
+)
 }
 \arguments{
 \item{dataset}{A dataset}
@@ -14,6 +19,10 @@ dataset from which the new dataset will sample.}
 
 \item{seed}{(Optional) An integer, representing the random seed that will be
 used to create the distribution.}
+
+\item{reshuffle_each_iteration}{(Optional) A boolean, which if true indicates
+that the dataset should be pseudorandomly reshuffled each time it is iterated
+over. (Defaults to \code{TRUE}). Not used if TF version < 1.15}
 }
 \value{
 A dataset
@@ -22,19 +31,23 @@ A dataset
 Randomly shuffles the elements of this dataset.
 }
 \seealso{
-Other dataset methods: \code{\link{dataset_batch}},
-  \code{\link{dataset_cache}},
-  \code{\link{dataset_concatenate}},
-  \code{\link{dataset_decode_delim}},
-  \code{\link{dataset_filter}},
-  \code{\link{dataset_interleave}},
-  \code{\link{dataset_map_and_batch}},
-  \code{\link{dataset_map}},
-  \code{\link{dataset_padded_batch}},
-  \code{\link{dataset_prefetch_to_device}},
-  \code{\link{dataset_prefetch}},
-  \code{\link{dataset_repeat}},
-  \code{\link{dataset_shuffle_and_repeat}},
-  \code{\link{dataset_skip}}, \code{\link{dataset_take}}
+Other dataset methods: 
+\code{\link{dataset_batch}()},
+\code{\link{dataset_cache}()},
+\code{\link{dataset_collect}()},
+\code{\link{dataset_concatenate}()},
+\code{\link{dataset_decode_delim}()},
+\code{\link{dataset_filter}()},
+\code{\link{dataset_interleave}()},
+\code{\link{dataset_map_and_batch}()},
+\code{\link{dataset_map}()},
+\code{\link{dataset_padded_batch}()},
+\code{\link{dataset_prefetch_to_device}()},
+\code{\link{dataset_prefetch}()},
+\code{\link{dataset_repeat}()},
+\code{\link{dataset_shuffle_and_repeat}()},
+\code{\link{dataset_skip}()},
+\code{\link{dataset_take}()},
+\code{\link{dataset_window}()}
 }
 \concept{dataset methods}

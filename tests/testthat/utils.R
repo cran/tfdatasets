@@ -17,16 +17,29 @@ skip_if_eager <- function(message) {
     skip(message)
 }
 
+skip_if_not_eager <- function() {
+  if (!tf$executing_eagerly())
+    skip("Eager execution is required. ")
+}
+
 skip_if_v2 <- function(message) {
   if (tensorflow::tf_version() >= "2.0")
     skip(message)
 }
 
 test_succeeds <- function(desc, expr, required_version = NULL) {
-  test_that(desc, {
-    skip_if_no_tensorflow(required_version)
-    expect_error(force(expr), NA)
-  })
+  IPython <- reticulate::import("IPython")
+  py_capture_output <- IPython$utils$capture$capture_output
+  invisible(
+    capture.output({
+      with(py_capture_output(), {
+        test_that(desc, {
+          skip_if_no_tensorflow(required_version)
+          expect_error(force(expr), NA)
+        })
+      })
+    })
+  )
 }
 
 csv_dataset <- function(file, ...) {
