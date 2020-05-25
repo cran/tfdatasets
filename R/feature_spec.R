@@ -1536,8 +1536,13 @@ step_embedding_column <- function(spec, ..., dimension = function(x) {as.integer
                                   trainable = TRUE) {
 
 
+  if (is.numeric(dimension))
+    dimension_ <- as.integer(dimension)
+  else if (rlang::is_function(dimension))
+    dimension_ <- function(x) {as.integer(dimension(x))}
+
   args <- list(
-    dimension = dimension,
+    dimension = dimension_,
     combiner = combiner,
     initializer = initializer,
     ckpt_to_load_from = ckpt_to_load_from,
@@ -1653,7 +1658,7 @@ step_multiple_ <- function(spec, ..., step, args, prefix) {
 step_crossed_column <- function(spec, ..., hash_bucket_size, hash_key = NULL) {
 
   args <- list(
-    hash_bucket_size = hash_bucket_size,
+    hash_bucket_size = as.integer(hash_bucket_size),
     hash_key = hash_key
   )
 

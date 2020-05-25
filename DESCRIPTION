@@ -1,7 +1,7 @@
 Package: tfdatasets
 Type: Package
 Title: Interface to 'TensorFlow' Datasets
-Version: 2.0.0
+Version: 2.2.0
 Authors@R: c(
   person("Daniel", "Falbel", role = c("ctb", "cph", "cre"), 
          email = "daniel@rstudio.com"),
@@ -28,13 +28,13 @@ LazyData: true
 Depends: R (>= 3.1)
 Imports: reticulate (>= 1.10), tensorflow (>= 1.13.1), magrittr, rlang,
         tidyselect, stats, generics, tfestimators
-RoxygenNote: 7.0.1
+RoxygenNote: 7.1.0
 Suggests: testthat, knitr, keras, rsample, rmarkdown, Metrics, dplyr
 VignetteBuilder: knitr
 Config/reticulate: list( packages = list( list(package = "tensorflow",
         pip = TRUE) ) )
 NeedsCompilation: no
-Packaged: 2019-12-13 14:00:23 UTC; dfalbel
+Packaged: 2020-05-25 13:54:56 UTC; dfalbel
 Author: Daniel Falbel [ctb, cph, cre],
   JJ Allaire [aut, cph],
   Yuan Tang [aut] (<https://orcid.org/0000-0001-5243-233X>),
@@ -43,4 +43,4 @@ Author: Daniel Falbel [ctb, cph, cre],
   Google Inc. [cph]
 Maintainer: Daniel Falbel <daniel@rstudio.com>
 Repository: CRAN
-Date/Publication: 2019-12-13 14:40:02 UTC
+Date/Publication: 2020-05-25 14:20:09 UTC

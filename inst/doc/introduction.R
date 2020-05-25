@@ -1,14 +1,14 @@
-## ----setup, include=FALSE------------------------------------------------
+## ----setup, include=FALSE-----------------------------------------------------
 knitr::opts_chunk$set(eval = FALSE)
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  devtools::install_github("rstudio/tfdatasets")
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  library(tfdtasets)
 #  install_tensorflow()
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  library(tfdatasets)
 #  
 #  # create specification for parsing records from an example file
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #  # take a glimpse at the dataset
 #  str(dataset)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  # provide colum names and types explicitly
 #  iris_spec <- csv_record_spec(
 #    names = c("SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"),
@@ -31,18 +31,18 @@ knitr::opts_chunk$set(eval = FALSE)
 #  # read the datset
 #  dataset <- text_line_dataset("iris.csv", record_spec = iris_spec)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  mtcars_spec <- csv_record_spec("mtcars.csv", types = "dididddiiii")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- text_line_dataset("iris.csv", record_spec = iris_spec, parallel_records = 4)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- text_line_dataset("iris.csv", record_spec = iris_spec, parallel_records = 4) %>%
 #    dataset_batch(128) %>%
 #    dataset_prefetch(1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  # Creates a dataset that reads all of the examples from two files, and extracts
 #  # the image and label features.
 #  filenames <- c("/var/data/file1.tfrecord", "/var/data/file2.tfrecord")
@@ -55,11 +55,11 @@ knitr::opts_chunk$set(eval = FALSE)
 #      tf$parse_single_example(example_proto, features)
 #    })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  filenames <- c("/var/data/file1.tfrecord", "/var/data/file2.tfrecord")
 #  dataset <- tfrecord_dataset(filenames, num_parallel_reads = 4)
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  library(tfdatasets)
 #  
 #  record_spec <- sql_record_spec(
@@ -76,21 +76,21 @@ knitr::opts_chunk$set(eval = FALSE)
 #  
 #  dataset
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map(function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
 #      record
 #    })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map(num_parallel_calls = 4, function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
 #      record
 #    })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map(num_parallel_calls = 4, function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
@@ -98,7 +98,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #    }) %>%
 #    datset_prefetch(1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map_and_batch(batch_size = 128, function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
@@ -106,7 +106,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #    }) %>%
 #    datset_prefetch(1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- csv_dataset("mtcars.csv") %>%
 #    dataset_filter(function(record) {
 #      record$mpg >= 20
@@ -117,33 +117,33 @@ knitr::opts_chunk$set(eval = FALSE)
 #      record$mpg >= 20 & record$cyl >= 6L
 #    })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  mtcars_dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_prepare(x = c(mpg, disp), y = cyl)
 #  
 #  iris_dataset <- text_line_dataset("iris.csv", record_spec = iris_spec) %>%
 #    dataset_prepare(x = -Species, y = Species)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  mtcars_dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_prepare(cyl ~ mpg + disp)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  mtcars_dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_prepare(cyl ~ mpg + disp, batch_size = 16)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_shuffle(1000) %>%
 #    dataset_repeat(10) %>%
 #    dataset_batch(128) %>%
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_shuffle_and_repeat(buffer_size = 1000, count = 10) %>%
 #    dataset_batch(128)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map_and_batch(batch_size = 128, function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
@@ -151,7 +151,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #    }) %>%
 #    dataset_prefetch(1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- dataset %>%
 #    dataset_map_and_batch(batch_size = 128, function(record) {
 #      record$Species <- tf$one_hot(record$Species, 3L)
@@ -159,7 +159,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #    }) %>%
 #    dataset_prefetch_to_device("/gpu:0")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_filter(function(record) {
 #      record$mpg >= 20 & record$cyl >= 6L
@@ -168,14 +168,14 @@ knitr::opts_chunk$set(eval = FALSE)
 #    dataset_prepare(cyl ~ mpg + disp, batch_size = 128) %>%
 #    dataset_prefetch(1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  model %>% fit(
 #    x_train, y_train,
 #    epochs = 30,
 #    batch_size = 128
 #  )
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  library(keras)
 #  library(tfdatasets)
 #  
@@ -240,7 +240,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #  
 #  print(score)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
 #    dataset_prepare(cyl ~ mpg + disp) %>%
 #    dataset_shuffle(20) %>%
@@ -250,11 +250,11 @@ knitr::opts_chunk$set(eval = FALSE)
 #  next_batch <- iterator_get_next(iter)
 #  next_batch
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  sess <- tf$Session()
 #  sess$run(next_batch)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  library(tfdatasets)
 #  
 #  sess <- tf$Session()
@@ -279,7 +279,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #    # advance to the next batch)
 #  }
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  library(tfdatasets)
 #  
 #  sess <- tf$Session()
@@ -300,13 +300,13 @@ knitr::opts_chunk$set(eval = FALSE)
 #    }
 #  }, error = out_of_range_handler)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  until_out_of_range({
 #    batch <- sess$run(next_batch)
 #    str(batch)
 #  })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  iter <- make_iterator_one_shot(dataset)
 #  
 #  until_out_of_range({
@@ -314,14 +314,14 @@ knitr::opts_chunk$set(eval = FALSE)
 #    str(batch)
 #  })
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  dataset <- read_files("data/*.csv", text_line_dataset, record_spec = mtcars_spec,
 #                        parallel_files = 4, parallel_interleave = 16) %>%
 #    dataset_prefetch(5000) %>%
 #    dataset_shuffle_and_repeat(buffer_size = 1000, count = 3) %>%
 #    dataset_batch(128)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 #  # command line flags for training script (shard info is passed by training
 #  # supervisor that executes the script)
 #  FLAGS <- flags(
