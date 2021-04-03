@@ -1,7 +1,7 @@
 Package: tfdatasets
 Type: Package
 Title: Interface to 'TensorFlow' Datasets
-Version: 2.2.0
+Version: 2.4.0
 Authors@R: c(
   person("Daniel", "Falbel", role = c("ctb", "cph", "cre"), 
          email = "daniel@rstudio.com"),
@@ -17,7 +17,7 @@ Authors@R: c(
   )
 Description: Interface to 'TensorFlow' Datasets, a high-level library for 
     building complex input pipelines from simple, re-usable pieces. 
-    See <https://www.tensorflow.org/programmers_guide/datasets> for additional
+    See <https://www.tensorflow.org/guide> for additional
     details.
 License: Apache License 2.0
 URL: https://github.com/rstudio/tfdatasets
@@ -27,14 +27,15 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.1)
 Imports: reticulate (>= 1.10), tensorflow (>= 1.13.1), magrittr, rlang,
-        tidyselect, stats, generics, tfestimators
-RoxygenNote: 7.1.0
-Suggests: testthat, knitr, keras, rsample, rmarkdown, Metrics, dplyr
+        tidyselect, stats, generics, vctrs
+RoxygenNote: 7.1.1
+Suggests: testthat, knitr, keras, rsample, rmarkdown, Metrics, dplyr,
+        tfestimators
 VignetteBuilder: knitr
 Config/reticulate: list( packages = list( list(package = "tensorflow",
         pip = TRUE) ) )
 NeedsCompilation: no
-Packaged: 2020-05-25 13:54:56 UTC; dfalbel
+Packaged: 2021-04-01 12:21:42 UTC; dfalbel
 Author: Daniel Falbel [ctb, cph, cre],
   JJ Allaire [aut, cph],
   Yuan Tang [aut] (<https://orcid.org/0000-0001-5243-233X>),
@@ -43,4 +44,4 @@ Author: Daniel Falbel [ctb, cph, cre],
   Google Inc. [cph]
 Maintainer: Daniel Falbel <daniel@rstudio.com>
 Repository: CRAN
-Date/Publication: 2020-05-25 14:20:09 UTC
+Date/Publication: 2021-04-03 05:00:03 UTC
