@@ -1,7 +1,5 @@
 context("tensor datasets")
 
-source("utils.R")
-
 test_succeeds("tensors_dataset creates a dataset", {
   tensors_dataset(tf$constant(1:100))
 })
@@ -33,11 +31,3 @@ test_succeeds("tensor slices works with mixed named/unnamed lists", {
   # TODO is this the expected behavior?
   tensor_slices_dataset(list(1:3, a = 1:3, 1:3))
 })
-
-
-
-
-
-
-
-

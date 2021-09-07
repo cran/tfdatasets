@@ -1,7 +1,6 @@
 
 context("dataset methods")
 
-source("utils.R")
 
 test_succeeds("dataset_repeat returns a dataset", {
   dataset <- tensors_dataset(tf$constant(1:100)) %>%
@@ -112,7 +111,7 @@ test_succeeds("dataset_prefetch_to_device returns a dataset", {
 })
 
 test_succeeds("dataset_filter narrows the dataset", {
-  dataset <- csv_dataset("data/mtcars.csv") %>%
+  dataset <- csv_dataset(testing_data_filepath("mtcars.csv")) %>%
     dataset_filter(function(record) {
       record$mpg >= 20 & record$cyl >= 6L
     }) %>%
@@ -141,7 +140,7 @@ test_succeeds("dataset_interleave yields a dataset" , {
 
 test_succeeds("dataset_shard yields a dataset" , {
 
-  dataset <- csv_dataset("data/mtcars.csv") %>%
+  dataset <- csv_dataset(testing_data_filepath("mtcars.csv")) %>%
     dataset_shard(num_shards = 4, index = 1) %>%
     dataset_batch(8)
 
@@ -205,8 +204,54 @@ test_succeeds("dataset_reduce works", {
 
   d <- tensor_slices_dataset(tf$constant(c(1.1, 2.2, 3.3)))
   sum_and_count <- d %>% dataset_reduce(tuple(0, 0), function(x, y) tuple(x[[1]] + y, x[[2]] + 1))
-  expect_equal(as.numeric(sum_and_count[[1]])/as.numeric(sum_and_count[[2]]), 2.2, tol = 1e-6)
+  expect_equal(as.numeric(sum_and_count[[1]])/as.numeric(sum_and_count[[2]]), 2.2, tolerance = 1e-6)
 
 })
 
 
+test_succeeds("length.tf_dataset", {
+  expect_equal(length(range_dataset(0, 42)),
+               42)
+
+  expect_equal(length(range_dataset(0, 42) %>% dataset_repeat()),
+               Inf)
+
+  l <- range_dataset(0, 42) %>% dataset_repeat() %>%
+    dataset_filter(function(x) TRUE) %>% length()
+  expect_length(l, 1)
+  expect_true(is.na(l))
+
+})
+
+
+test_succeeds("dataset_enumerate", {
+
+  dataset <- tensor_slices_dataset(100:103) %>%
+    dataset_enumerate()
+
+  as_iterator <- reticulate::as_iterator
+  iter_next <- reticulate::iter_next
+
+  it <- as_iterator(dataset)
+  expect_equal(iter_next(it), list(as_tensor(0, "int64"), as_tensor(100, "int64")))
+  expect_equal(iter_next(it), list(as_tensor(1, "int64"), as_tensor(101, "int64")))
+  expect_equal(iter_next(it), list(as_tensor(2, "int64"), as_tensor(102, "int64")))
+  expect_equal(iter_next(it), list(as_tensor(3, "int64"), as_tensor(103, "int64")))
+  expect_null(iter_next(it))
+  expect_null(iter_next(it))
+
+})
+
+
+
+test_succeeds("dataset_scan", {
+  initial_state <- as_tensor(0, dtype = "int64")
+  scan_func <- function(state, i) list(state + i, state + i)
+  dataset <- range_dataset(0, 10) %>%
+    dataset_scan(initial_state, scan_func)
+
+  res <- reticulate::iterate(dataset, as.array) %>%
+    unlist()
+  expect_equal(res, c(0, 1, 3, 6, 10, 15, 21, 28, 36, 45))
+
+})

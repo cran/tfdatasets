@@ -1,7 +1,7 @@
 
 
 
-#' Tensor(s) for retreiving the next batch from a dataset
+#' Tensor(s) for retrieving the next batch from a dataset
 #'
 #' @param dataset A dataset
 #'
@@ -171,11 +171,3 @@ out_of_range_handler <- function(e) {
   if (is.null(last_error) || !identical(last_error$type, "OutOfRangeError"))
     stop(e$message, call. = FALSE)
 }
-
-
-
-
-
-
-
-

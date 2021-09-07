@@ -252,7 +252,7 @@ dataset_flat_map <- function(dataset, map_func) {
 #' @family dataset methods
 #'
 #' @export
-dataset_prefetch <- function(dataset, buffer_size) {
+dataset_prefetch <- function(dataset, buffer_size = tf$data$AUTOTUNE) {
   as_tf_dataset(dataset$prefetch(as_integer_tensor(buffer_size)))
 }
 
@@ -732,6 +732,343 @@ dataset_collect <- function(dataset, iter_max = Inf) {
 #'
 #' @export
 dataset_reduce <- function(dataset, initial_state, reduce_func) {
-  dataset$`reduce`(initial_state, reduce_func)
+  dataset$reduce(initial_state, reduce_func)
 }
 
+
+#' Get or Set Dataset Options
+#'
+#' @param dataset a tensorflow dataset
+#' @param ... Valid values include:
+#'
+#'   +  A set of named arguments setting options. Names of nested attributes can
+#'   be separated with a `"."` (see examples). The set of named arguments can be
+#'   supplied individually to `...`, or as a single named list.
+#'
+#'   + a `tf$data$Options()` instance.
+#'
+#'
+#' @return If values are supplied to `...`, returns a `tf.data.Dataset` with the
+#'   given options set/updated. Otherwise, returns the currently set options for
+#'   the dataset.
+#'
+#' @details The options are "global" in the sense they apply to the entire
+#'   dataset. If options are set multiple times, they are merged as long as
+#'   different options do not use different non-default values.
+#'
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' # pass options directly:
+#' range_dataset(0, 10) %>%
+#'   dataset_options(
+#'     experimental_deterministic = FALSE,
+#'     threading.private_threadpool_size = 10
+#'   )
+#'
+#' # pass options as a named list:
+#' opts <- list(
+#'   experimental_deterministic = FALSE,
+#'   threading.private_threadpool_size = 10
+#' )
+#' range_dataset(0, 10) %>%
+#'   dataset_options(opts)
+#'
+#' # pass a tf.data.Options() instance
+#' opts <- tf$data$Options()
+#' opts$experimental_deterministic <- FALSE
+#' opts$threading$private_threadpool_size <- 10L
+#' range_dataset(0, 10) %>%
+#'   dataset_options(opts)
+#'
+#' # get currently set options
+#' range_dataset(0, 10) %>% dataset_options()
+#' }
+dataset_options <- function(dataset, ...) {
+  user_opts <- list(...)
+
+  if(!length(user_opts))
+    return(dataset$options())
+
+  options <- tf$data$Options()
+
+  # accept a packed list of arguments, don't required do.call for programming
+  if(is.null(names(user_opts)) &&
+     length(user_opts) == 1 &&
+     is.list(user_opts[[1]]))
+    user_opts <- user_opts[[1]]
+
+  for (i in seq_along(user_opts)) {
+    name <- names(user_opts)[i]
+    val <- user_opts[[i]]
+
+    if (inherits(val, c("tensorflow.python.data.ops.dataset_ops.Options",
+                        "tensorflow.python.data.ops.options.Options"))) {
+      options <- options$merge(val)
+      next
+    }
+
+    # special convenience hooks for some known options, with a no-op fallback
+    transform <- switch(name,
+      "threading.private_threadpool_size" = as.integer,
+      "threading.max_intra_op_parallelism" = as.integer,
+      "experimental_distribute.num_devices" = as.integer,
+      identity
+    )
+
+    val <- transform(val)
+
+    # change names like "foo.bar.baz" to an R expression like
+    # `options$foo$bar$baz`, but with some semblance of safety by avoiding
+    # parse(), using as.symbol() on user supplied names, and constructing the
+    # call we want directly. We do this to avoid hand-coding a recursive impl
+    # using py_set_attr(), and let the R's `$<-` method do the recursion.
+    target <- Reduce(
+      function(x, y) substitute(x$y, list(x = x, y = as.symbol(y))),
+      strsplit(name, ".", fixed = TRUE)[[1]],
+      init = quote(options))
+
+    expr <- substitute(target <- val, list(target = target))
+    eval(expr)
+  }
+
+  as_tf_dataset(dataset$with_options(options))
+}
+
+
+#' Get Dataset length
+#'
+#' Returns the length of the dataset.
+#'
+#' @param x a `tf.data.Dataset` object.
+#'
+#' @return Either `Inf` if the dataset is infinite, `NA` if the dataset length
+#'   is unknown, or an R numeric if it is known.
+#' @export
+#' @importFrom tensorflow tf_version
+#' @examples
+#' \dontrun{
+#' range_dataset(0, 42) %>% length()
+#' # 42
+#'
+#' range_dataset(0, 42) %>% dataset_repeat() %>% length()
+#' # Inf
+#'
+#' range_dataset(0, 42) %>% dataset_repeat() %>%
+#'   dataset_filter(function(x) TRUE) %>% length()
+#' # NA
+#' }
+length.tf_dataset <- function(x) {
+  if (tf_version() >= "2.3") {
+    l <- x$cardinality()$numpy()
+    car_inf <- tf$data$INFINITE_CARDINALITY
+    car_unk <- tf$data$UNKNOWN_CARDINALITY
+  } else {
+    l <- tf$data$experimental$cardinality(x)$numpy()
+    car_inf <- tf$data$experimental$INFINITE_CARDINALITY
+    car_unk <- tf$data$experimental$UNKNOWN_CARDINALITY
+  }
+
+  if (l == car_inf)
+    Inf
+  else if (l == car_unk)
+    NA
+  else
+    l
+}
+
+#' @export
+#' @rdname length.tf_dataset
+length.tensorflow.python.data.ops.dataset_ops.DatasetV2 <- length.tf_dataset
+
+
+#' Enumerates the elements of this dataset
+#'
+#' @details It is similar to python's `enumerate`, this transforms a sequence of
+#' elements into a sequence of `list(index, element)`, where index is an integer
+#' that indicates the position of the element in the sequence.
+#'
+#' @param dataset A tensorflow dataset
+#' @param start An integer (coerced to a `tf$int64` scalar `tf.Tensor`),
+#'   representing the start value for enumeration.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' dataset <- tensor_slices_dataset(100:103) %>%
+#'   dataset_enumerate()
+#'
+#' iterator <- reticulate::as_iterator(dataset)
+#' reticulate::iter_next(iterator) # list(0, 100)
+#' reticulate::iter_next(iterator) # list(1, 101)
+#' reticulate::iter_next(iterator) # list(2, 102)
+#' reticulate::iter_next(iterator) # list(3, 103)
+#' reticulate::iter_next(iterator) # NULL (iterator exhausted)
+#' reticulate::iter_next(iterator) # NULL (iterator exhausted)
+#' }
+dataset_enumerate <- function(dataset, start=0L) {
+  as_tf_dataset(dataset$enumerate(as_integer_tensor(start)))
+}
+
+
+#' Creates a `Dataset` of pseudorandom values
+#'
+#' @details
+#' The dataset generates a sequence of uniformly distributed integer values (dtype int64).
+#'
+#' @param seed (Optional) If specified, the dataset produces a deterministic
+#' sequence of values.
+#'
+#' @export
+random_integer_dataset <- function(seed = NULL) {
+  if (tf_version() >= "2.6")
+    as_tf_dataset(tf$data$Dataset$random(as_integer_tensor(seed)))
+  else
+    as_tf_dataset(tf$data$experimental$RandomDataset(as_integer_tensor(seed)))
+}
+
+
+#' A transformation that scans a function across an input dataset
+#'
+#' @details
+#' This transformation is a stateful relative of `dataset_map()`.
+#' In addition to mapping `scan_func` across the elements of the input dataset,
+#' `scan()` accumulates one or more state tensors, whose initial values are
+#' `initial_state`.
+#'
+#' @param dataset A tensorflow dataset
+#'
+#' @param initial_state A nested structure of tensors, representing the initial
+#' state of the accumulator.
+#'
+#' @param scan_func A function that maps `(old_state, input_element)` to
+#' `(new_state, output_element)`. It must take two arguments and return a
+#' pair of nested structures of tensors. The `new_state` must match the
+#' structure of `initial_state`.
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' initial_state <- as_tensor(0, dtype="int64")
+#' scan_func <- function(state, i) list(state + i, state + i)
+#' dataset <- range_dataset(0, 10) %>%
+#'   dataset_scan(initial_state, scan_func)
+#'
+#' reticulate::iterate(dataset, as.array) %>%
+#'   unlist()
+#' # 0  1  3  6 10 15 21 28 36 45
+#' }
+dataset_scan <- function(dataset, initial_state, scan_func) {
+  if(tf_version() >= "2.6")
+    as_tf_dataset(dataset$scan(initial_state, as_py_function(scan_func)))
+  else {
+    dataset$apply(
+      tf$data$experimental$scan(initial_state, as_py_function(scan_func))
+    )
+  }
+}
+
+
+#' Persist the output of a dataset
+#'
+#' @details
+#' The snapshot API allows users to transparently persist the output of their
+#' preprocessing pipeline to disk, and materialize the pre-processed data on a
+#' different training run.
+#'
+#' This API enables repeated preprocessing steps to be consolidated, and allows
+#' re-use of already processed data, trading off disk storage and network
+#' bandwidth for freeing up more valuable CPU resources and accelerator compute
+#' time.
+#'
+#' https://github.com/tensorflow/community/blob/master/rfcs/20200107-tf-data-snapshot.md
+#' has detailed design documentation of this feature.
+#'
+#' Users can specify various options to control the behavior of snapshot,
+#' including how snapshots are read from and written to by passing in
+#' user-defined functions to the `reader_func` and `shard_func` parameters.
+#'
+#' `shard_func` is a user specified function that maps input elements to
+#' snapshot shards.
+#'
+# If `shard_func` is not supplied, the equivalent action is performed:
+#' ```R
+#' NUM_SHARDS <- parallel::detectCores()
+#' dataset %>%
+#'   dataset_enumerate() %>%
+#'   dataset_snapshot(
+#'     "/path/to/snapshot/dir",
+#'     shard_func = function(index, ds_elem) x %% NUM_SHARDS) %>%
+#'   dataset_map(function(index, ds_elem) ds_elem)
+#' ```
+#'
+#' `reader_func` is a user specified function that accepts a single argument:
+#' a Dataset of Datasets, each representing a "split" of elements of the
+#' original dataset. The cardinality of the input dataset matches the
+#' number of the shards specified in the `shard_func`. The function
+#' should return a Dataset of elements of the original dataset.
+#'
+#' Users may want specify this function to control how snapshot files should be
+#' read from disk, including the amount of shuffling and parallelism.
+#'
+#' Here is an example of a standard reader function a user can define. This
+#' function enables both dataset shuffling and parallel reading of datasets:
+#'
+#' ````R
+#' user_reader_func <- function(datasets) {
+#'   num_cores <- parallel::detectCores()
+#'   datasets %>%
+#'     dataset_shuffle(num_cores) %>%
+#'     dataset_interleave(function(x) x, num_parallel_calls=AUTOTUNE)
+#' }
+#'
+#' dataset <- dataset %>%
+#'   dataset_snapshot("/path/to/snapshot/dir",
+#'                    reader_func = user_reader_func)
+#' ````
+#'
+#' By default, snapshot parallelizes reads by the number of cores available on
+#' the system, but will not attempt to shuffle the data.
+#'
+#' @param dataset A tensorflow dataset
+#'
+#' @param path Required. A directory to use for storing/loading the snapshot to/from.
+#'
+#' @param compression Optional. The type of compression to apply to the snapshot
+#'   written to disk. Supported options are `"GZIP"`, `"SNAPPY"`, `"AUTO"` or
+#'   `NULL` (values of `""`, `NA`, and `"None"` are synonymous with `NULL`)
+#'   Defaults to `AUTO`, which attempts to pick an appropriate compression
+#'   algorithm for the dataset.
+#'
+#' @param reader_func Optional. A function to control how to read data from
+#' snapshot shards.
+#'
+#' @param shard_func Optional. A function to control how to shard data when writing
+#' a snapshot.
+#'
+#' @export
+dataset_snapshot <- function(dataset, path, compression=c("AUTO", "GZIP", "SNAPPY", "None"),
+                             reader_func=NULL, shard_func=NULL) {
+  if(identical(compression, ""))
+    compression <- NULL
+  else if(!is.null(compression)) {
+    compression <- match.arg(compression)
+    if(compression == "None")
+      compression <- NULL
+  }
+
+  if (!is.null(reader_func))
+    reader_func <- as_py_function(reader_func)
+  if (!is.null(shard_func))
+    shard_func <- as_py_function(shard_func)
+
+  args <- list(path, compression=compression,
+                   reader_func = reader_func,
+                   shard_func = shard_func)
+
+  if(tf_version() >= "2.6")
+    do.call(dataset$snapshot, args)
+  else
+    dataset$apply(do.call(tf$data$experimental$snapshot, args))
+}

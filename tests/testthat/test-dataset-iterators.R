@@ -1,7 +1,5 @@
 context("iterators")
 
-source("utils.R")
-
 test_succeeds("with_dataset catches end of iteration", {
 
   dataset <- tensor_slices_dataset(1:50) %>%
@@ -55,9 +53,3 @@ test_succeeds("until_out_of_range catches break", {
     break
   })
 })
-
-
-
-
-
-
