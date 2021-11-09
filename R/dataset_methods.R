@@ -73,12 +73,38 @@ dataset_shuffle_and_repeat <- function(dataset, buffer_size, count = NULL, seed 
 
 #' Combines consecutive elements of this dataset into batches.
 #'
+#' The components of the resulting element will have an additional outer
+#' dimension, which will be `batch_size` (or `N %% batch_size` for the last
+#' element if `batch_size` does not divide the number of input elements `N`
+#' evenly and `drop_remainder` is `FALSE`). If your program depends on the
+#' batches having the same outer dimension, you should set the `drop_remainder`
+#' argument to `TRUE` to prevent the smaller batch from being produced.
+#'
+#' @note If your program requires data to have a statically known shape (e.g.,
+#'   when using XLA), you should use `drop_remainder=TRUE`. Without
+#'   `drop_remainder=TRUE` the shape of the output dataset will have an unknown
+#'   leading dimension due to the possibility of a smaller final batch.
+#'
 #' @param dataset A dataset
 #' @param batch_size An integer, representing the number of consecutive elements
 #'   of this dataset to combine in a single batch.
-#' @param drop_remainder Ensure that batches have a fixed size by
-#'   omitting any final smaller batch if it's present. Note that this is
-#'   required for use with the Keras tensor inputs to fit/evaluate/etc.
+#' @param drop_remainder (Optional.) A boolean, representing whether the last
+#'   batch should be dropped in the case it has fewer than `batch_size`
+#'   elements; the default behavior is not to drop the smaller batch.
+#' @param num_parallel_calls (Optional.) A scalar integer, representing the
+#'   number of batches to compute asynchronously in parallel. If not specified,
+#'   batches will be computed sequentially. If the value `tf$data$AUTOTUNE` is
+#'   used, then the number of parallel calls is set dynamically based on
+#'   available resources.
+#'
+#' @param deterministic (Optional.) When `num_parallel_calls` is specified, if
+#'   this boolean is specified (`TRUE` or `FALSE`), it controls the order in
+#'   which the transformation produces elements. If set to `FALSE`, the
+#'   transformation is allowed to yield elements out of order to trade
+#'   determinism for performance. If not specified, the
+#'   `tf.data.Options.experimental_deterministic` option (`TRUE` by default)
+#'   controls the behavior. See `dataset_options()` for how to set dataset
+#'   options.
 #'
 #' @return A dataset
 #'
@@ -86,22 +112,116 @@ dataset_shuffle_and_repeat <- function(dataset, buffer_size, count = NULL, seed 
 #'
 #' @export
 dataset_batch <-
-  function(dataset, batch_size, drop_remainder = FALSE) {
-    if (tensorflow::tf_version() > "1.9") {
-      as_tf_dataset(
-        dataset$batch(batch_size = as_integer_tensor(batch_size),
-                      drop_remainder = drop_remainder)
-      )
-    } else {
-      if (drop_remainder) {
-        as_tf_dataset(dataset$apply(
-          tf$contrib$data$batch_and_drop_remainder(as_integer_tensor(batch_size))
-        ))
-      } else {
-        as_tf_dataset(dataset$batch(batch_size = as_integer_tensor(batch_size)))
-      }
-    }
+  function(dataset, batch_size, drop_remainder = FALSE, num_parallel_calls=NULL, deterministic=NULL) {
+    args <- capture_args(match.call(), list(
+      batch_size = as_integer_tensor
+    ), ignore = "dataset")
+    as_tf_dataset(do.call(dataset$batch, args))
 }
+
+
+#' A transformation that buckets elements in a `Dataset` by length
+#'
+#' @details
+#' Elements of the `Dataset` are grouped together by length and then are padded
+#' and batched.
+#'
+#' This is useful for sequence tasks in which the elements have variable
+#' length. Grouping together elements that have similar lengths reduces the
+#' total fraction of padding in a batch which increases training step
+#' efficiency.
+#'
+#' Below is an example to bucketize the input data to the 3 buckets
+#' "[0, 3), [3, 5), [5, Inf)" based on sequence length, with batch size 2.
+#'
+#' @param dataset A `tf_dataset`
+#' @param element_length_func function from element in `Dataset` to `tf$int32`,
+#' determines the length of the element, which will determine the bucket it
+#' goes into.
+#'
+#' @param bucket_boundaries integers, upper length boundaries of the buckets.
+#'
+#' @param bucket_batch_sizes integers, batch size per bucket. Length should be
+#' `length(bucket_boundaries) + 1`.
+#'
+#' @param padded_shapes Nested structure of `tf.TensorShape` (returned by [`tensorflow::shape()`])
+#'  to pass to `tf.data.Dataset.padded_batch`. If not provided, will use
+#' `dataset.output_shapes`, which will result in variable length dimensions
+#' being padded out to the maximum length in each batch.
+#'
+#' @param padding_values Values to pad with, passed to
+#' `tf.data.Dataset.padded_batch`. Defaults to padding with 0.
+#'
+#' @param pad_to_bucket_boundary bool, if `FALSE`, will pad dimensions with unknown
+#' size to maximum length in batch. If `TRUE`, will pad dimensions with
+#' unknown size to bucket boundary minus 1 (i.e., the maximum length in
+#' each bucket), and caller must ensure that the source `Dataset` does not
+#' contain any elements with length longer than `max(bucket_boundaries)`.
+#'
+#' @param no_padding boolean, indicates whether to pad the batch features (features
+#' need to be either of type `tf.sparse.SparseTensor` or of same shape).
+#'
+#' @param drop_remainder (Optional.) A logical scalar, representing
+#' whether the last batch should be dropped in the case it has fewer than
+#' `batch_size` elements; the default behavior is not to drop the smaller
+#' batch.
+#'
+#' @param name (Optional.) A name for the tf.data operation.
+#'
+#' @seealso
+#'   +  <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#bucket_by_sequence_length>
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' dataset <- list(c(0),
+#'                 c(1, 2, 3, 4),
+#'                 c(5, 6, 7),
+#'                 c(7, 8, 9, 10, 11),
+#'                 c(13, 14, 15, 16, 17, 18, 19, 20),
+#'                 c(21, 22)) %>%
+#'   lapply(as.array) %>% lapply(as_tensor, "int32") %>%
+#'   lapply(tensors_dataset) %>%
+#'   Reduce(dataset_concatenate, .)
+#'
+#' dataset %>%
+#'   dataset_bucket_by_sequence_length(
+#'     element_length_func = function(elem) tf$shape(elem)[1],
+#'     bucket_boundaries = c(3, 5),
+#'     bucket_batch_sizes = c(2, 2, 2)
+#'   ) %>%
+#'   as_array_iterator() %>%
+#'   iterate(print)
+#' #      [,1] [,2] [,3] [,4]
+#' # [1,]    1    2    3    4
+#' # [2,]    5    6    7    0
+#' #      [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8]
+#' # [1,]    7    8    9   10   11    0    0    0
+#' # [2,]   13   14   15   16   17   18   19   20
+#' #      [,1] [,2]
+#' # [1,]    0    0
+#' # [2,]   21   22
+#' }
+dataset_bucket_by_sequence_length <-
+function(dataset,
+         element_length_func,
+         bucket_boundaries,
+         bucket_batch_sizes,
+         padded_shapes = NULL,
+         padding_values = NULL,
+         pad_to_bucket_boundary = FALSE,
+         no_padding = FALSE,
+         drop_remainder = FALSE,
+         name = NULL)
+{
+    args <- capture_args(match.call(), list(
+      bucket_boundaries = as_integer_list,
+      bucket_batch_sizes = as_integer_list,
+      padded_shapes = as_tensor_shapes
+    ), ignore = "dataset")
+    do.call(dataset$bucket_by_sequence_length, args)
+}
+
 
 #' Caches the elements in this dataset.
 #'
@@ -132,16 +252,18 @@ dataset_cache <- function(dataset, filename = NULL) {
 #' @note Input dataset and dataset to be concatenated should have same nested
 #'   structures and output types.
 #'
-#' @param dataset A dataset
-#' @param other Dataset to be concatenated
+#' @param dataset,... `tf_dataset`s to be concatenated
 #'
 #' @return A dataset
 #'
 #' @family dataset methods
 #'
 #' @export
-dataset_concatenate <- function(dataset, other) {
-  as_tf_dataset(dataset$concatenate(other))
+dataset_concatenate <- function(dataset, ...) {
+  for (other in list(...))
+    dataset <- dataset$concatenate(other)
+
+  as_tf_dataset(dataset)
 }
 
 
@@ -418,52 +540,202 @@ dataset_shard <- function(dataset, num_shards, index) {
   ))
 }
 
-
-#' Combines consecutive elements of this dataset into padded batches
+#' Combines consecutive elements of this dataset into padded batches.
 #'
-#' This method combines multiple consecutive elements of this dataset, which
-#' might have different shapes, into a single element. The tensors in the
-#' resulting element have an additional outer dimension, and are padded to the
-#' respective shape in `padded_shapes`.
+#' @details
+#' This transformation combines multiple consecutive elements of the input
+#' dataset into a single element.
+#'
+#' Like [`dataset_batch()`], the components of the resulting element will
+#' have an additional outer dimension, which will be `batch_size` (or
+#' `N %% batch_size` for the last element if `batch_size` does not divide the
+#' number of input elements `N` evenly and `drop_remainder` is `FALSE`). If
+#' your program depends on the batches having the same outer dimension, you
+#' should set the `drop_remainder` argument to `TRUE` to prevent the smaller
+#' batch from being produced.
+#'
+#' Unlike [`dataset_batch()`], the input elements to be batched may have
+#' different shapes, and this transformation will pad each component to the
+#' respective shape in `padded_shapes`. The `padded_shapes` argument
+#' determines the resulting shape for each dimension of each component in an
+#' output element:
+#'
+#' * If the dimension is a constant, the component will be padded out to that
+#'   length in that dimension.
+#' * If the dimension is unknown, the component will be padded out to the
+#'   maximum length of all elements in that dimension.
+#'
+#' See also `tf$data$experimental$dense_to_sparse_batch`, which combines
+#' elements that may have different shapes into a `tf$sparse$SparseTensor`.
 #'
 #' @inheritParams dataset_batch
+#' @param batch_size An integer, representing the number of
+#'     consecutive elements of this dataset to combine in a single batch.
+#' @param padded_shapes (Optional.) A (nested) structure of
+#' `tf.TensorShape` (returned by [`tensorflow::shape()`]) or
+#'     `tf$int64` vector tensor-like objects representing the shape to which
+#'     the respective component of each input element should be padded prior
+#'     to batching. Any unknown dimensions will be padded to the maximum size
+#'     of that dimension in each batch. If unset, all dimensions of all
+#'     components are padded to the maximum size in the batch. `padded_shapes`
+#'     must be set if any component has an unknown rank.
+#' @param padding_values (Optional.) A (nested) structure of scalar-shaped
+#'     `tf.Tensor`, representing the padding values to use for the respective
+#'     components. `NULL` represents that the (nested) structure should be padded
+#'     with default values.  Defaults are `0` for numeric types and the empty
+#'     string `""` for string types. The `padding_values` should have the same
+#'     (nested) structure as the input dataset. If `padding_values` is a single
+#'     element and the input dataset has multiple components, then the same
+#'     `padding_values` will be used to pad every component of the dataset.
+#'     If `padding_values` is a scalar, then its value will be broadcasted
+#'     to match the shape of each component.
+#' @param drop_remainder (Optional.) A boolean scalar, representing
+#'     whether the last batch should be dropped in the case it has fewer than
+#'     `batch_size` elements; the default behavior is not to drop the smaller
+#'     batch.
 #'
-#' @param dataset A dataset
-#' @param batch_size An integer, representing the number of consecutive elements
-#'   of this dataset to combine in a single batch.
-#' @param padded_shapes A nested structure of tf$TensorShape or integer vector
-#'   tensor-like objects representing the shape to which the respective
-#'   component of each input element should be padded prior to batching. Any
-#'   unknown dimensions (e.g. `tf$Dimension(NULL)` in a `tf$TensorShape` or -1
-#'   in a tensor-like object) will be padded to the maximum size of that
-#'   dimension in each batch.
-#' @param padding_values (Optional) A nested structure of scalar-shaped
-#'   tf$Tensor, representing the padding values to use for the respective
-#'   components. Defaults are 0 for numeric types and the empty string for
-#'   string types.
+#' @param name (Optional.) A name for the tf.data operation. Requires tensorflow version >= 2.7.
 #'
-#' @return A dataset
-#'
-#' @family dataset methods
-#'
+#' @returns A tf_dataset
 #' @export
-dataset_padded_batch <- function(dataset, batch_size, padded_shapes, padding_values = NULL,
-                                 drop_remainder = FALSE) {
-  if (drop_remainder) {
-    as_tf_dataset(dataset$apply(
-      tf$contrib$data$padded_batch_and_drop_remainder(
-        as_integer_tensor(batch_size),
-        as_tensor_shapes(padded_shapes),
-        as_integer_tensor(padding_values)
-      )
-    ))
-  } else {
-    as_tf_dataset(dataset$padded_batch(
-      batch_size = as_integer_tensor(batch_size),
-      padded_shapes = as_tensor_shapes(padded_shapes),
-      padding_values = padding_values
-    ))
-  }
+#' @family dataset methods
+#' @seealso
+#'  -  <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#padded_batch>
+#'
+#' @examples
+#' \dontrun{
+#' A <- range_dataset(1, 5, dtype = tf$int32) %>%
+#'   dataset_map(function(x) tf$fill(list(x), x))
+#'
+#' # Pad to the smallest per-batch size that fits all elements.
+#' B <- A %>% dataset_padded_batch(2)
+#' B %>% as_array_iterator() %>% iterate(print)
+#'
+#' # Pad to a fixed size.
+#' C <- A %>% dataset_padded_batch(2, padded_shapes=5)
+#' C %>% as_array_iterator() %>% iterate(print)
+#'
+#' # Pad with a custom value.
+#' D <- A %>% dataset_padded_batch(2, padded_shapes=5, padding_values = -1L)
+#' D %>% as_array_iterator() %>% iterate(print)
+#'
+#' # Pad with a single value and multiple components.
+#' E <- zip_datasets(A, A) %>%  dataset_padded_batch(2, padding_values = -1L)
+#' E %>% as_array_iterator() %>% iterate(print)
+#' }
+dataset_padded_batch <-
+function(dataset,
+         batch_size,
+         padded_shapes = NULL,
+         padding_values = NULL,
+         drop_remainder = FALSE,
+         name = NULL) {
+  args <- capture_args(match.call(), list(
+    batch_size = as_integer_tensor,
+    padded_shapes = as_tensor_shapes
+  ), ignore = "dataset")
+
+  as_tf_dataset(do.call(dataset$padded_batch, args))
+}
+
+
+#' A transformation that resamples a dataset to a target distribution.
+#'
+#' @param dataset A `tf.Dataset`
+#' @param class_func A function mapping an element of the input dataset to a
+#'   scalar `tf.int32` tensor. Values should be in `[0, num_classes)`.
+#' @param target_dist A floating point type tensor, shaped `[num_classes]`.
+#' @param initial_dist (Optional.) A floating point type tensor, shaped
+#'   `[num_classes]`. If not provided, the true class distribution is estimated
+#'   live in a streaming fashion.
+#' @param seed (Optional.) Integer seed for the resampler.
+#' @param name (Optional.) A name for the tf.data operation.
+#'
+#' @return A `tf.Dataset`
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' initial_dist <- c(.5, .5)
+#' target_dist <- c(.6, .4)
+#' num_classes <- length(initial_dist)
+#' num_samples <- 100000
+#' data <- sample.int(num_classes, num_samples, prob = initial_dist, replace = TRUE)
+#' dataset <- tensor_slices_dataset(data)
+#' tally <- c(0, 0)
+#' `add<-` <- function (x, value) x + value
+#' # tfautograph::autograph({
+#' #   for(i in dataset)
+#' #     add(tally[as.numeric(i)]) <- 1
+#' # })
+#' dataset %>%
+#'   as_array_iterator() %>%
+#'   iterate(function(i) {
+#'     add(tally[i]) <<- 1
+#'   }, simplify = FALSE)
+#' # The value of `tally` will be close to c(50000, 50000) as
+#' # per the `initial_dist` distribution.
+#' tally # c(50287, 49713)
+#'
+#' tally <- c(0, 0)
+#' dataset %>%
+#'   dataset_rejection_resample(
+#'     class_func = function(x) (x-1) %% 2,
+#'     target_dist = target_dist,
+#'     initial_dist = initial_dist
+#'   ) %>%
+#'   as_array_iterator() %>%
+#'   iterate(function(element) {
+#'     names(element) <- c("class_id", "i")
+#'     add(tally[element$i]) <<- 1
+#'   }, simplify = FALSE)
+#' # The value of tally will be now be close to c(75000, 50000)
+#' # thus satisfying the target_dist distribution.
+#' tally # c(74822, 49921)
+#' }
+dataset_rejection_resample <-
+function(dataset,
+         class_func,
+         target_dist,
+         initial_dist = NULL,
+         seed = NULL,
+         name = NULL)
+{
+  require_tf_version("2.7", "dataset_rejection_resample")
+  args <- capture_args(match.call(),
+                       list(class_func = as_py_function,
+                            seed = as_integer_tensor),
+                       ignore = "dataset")
+  as_tf_dataset(do.call(dataset$rejection_resample, args))
+}
+
+#' A transformation that discards duplicate elements of a Dataset.
+#'
+#' Use this transformation to produce a dataset that contains one instance of
+#' each unique element in the input (See example).
+#'
+#' @note This transformation only supports datasets which fit into memory and
+#' have elements of either tf.int32, tf.int64 or tf.string type.
+#'
+#' @param dataset A tf.Dataset.
+#' @param name 	(Optional.) A name for the tf.data operation.
+#'
+#' @return A tf.Dataset
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' c(0, 37, 2, 37, 2, 1) %>% as_tensor("int32") %>%
+#'   tensor_slices_dataset() %>%
+#'   dataset_unique() %>%
+#'   as_array_iterator() %>% iterate() %>% sort()
+#' # [1]  0  1  2 37
+#' }
+dataset_unique <- function(dataset, name=NULL) {
+  require_tf_version("2.6", "dataset_unique")
+  args <- list()
+  args$name <- name
+  as_tf_dataset(do.call(dataset$unique, args))
 }
 
 
@@ -1071,4 +1343,15 @@ dataset_snapshot <- function(dataset, path, compression=c("AUTO", "GZIP", "SNAPP
     do.call(dataset$snapshot, args)
   else
     dataset$apply(do.call(tf$data$experimental$snapshot, args))
+}
+
+
+#' Convert tf_dataset to an iterator that yields R arrays.
+#'
+#' @param dataset A tensorflow dataset
+#'
+#' @return An iterable. Use [`iterate()`] or [`iter_next()`] to access values from the iterator.
+#' @export
+as_array_iterator <- function(dataset) {
+  dataset$as_numpy_iterator()
 }

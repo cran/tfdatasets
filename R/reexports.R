@@ -26,3 +26,16 @@ tensorflow::install_tensorflow
 #' @importFrom generics fit
 #' @export
 generics::fit
+
+#' @importFrom reticulate as_iterator
+#' @export
+reticulate::as_iterator
+
+#' @importFrom reticulate iter_next
+#' @export
+reticulate::iter_next
+
+
+#' @importFrom reticulate iterate
+#' @export
+reticulate::iterate

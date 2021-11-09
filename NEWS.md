@@ -1,3 +1,20 @@
+# tfdatasets 2.7.0
+
+- Added compatability with Tensorflow version 2.7
+- `as_iterator()`, `iter_next()` and `iterate()` are is now reexported from {reticualte}.
+- New `as_array_iterator()`, for converting a dataset into an iterable that yields R arrays.
+  (`as_iterator()` yields tensorflow tensors)
+- New `dataset_bucket_by_sequence_length()`
+- New `dataset_rejection_resample()`
+- New `dataset_unique()`
+- New `choose_from_datasets()`
+- `sample_from_datasets()` gains argument `stop_on_empty_dataset`.
+- `dataset_batch()` gains arguments `num_parallel_calls` and `deterministic`.
+- `dataset_padded_batch()`:
+    Fixed error raised when `drop_remainder=TRUE` with recent TF versions.
+    Added examples, docs, and tests.
+- `dataset_concatenate()` gains `...` and the ability to combine multiple datasets in one call.
+
 # tfdatasets 2.6.0
 
 - New `dataset_options()` for setting and getting dataset options.

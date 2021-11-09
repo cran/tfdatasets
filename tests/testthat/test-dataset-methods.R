@@ -172,7 +172,112 @@ test_succeeds("dataset_padded_batch returns a dataset", {
       padded_shapes = tf$constant(3L, shape = shape(1L), dtype = tf$int32),
       padding_values = tf$constant(77L))
 
+})
 
+if(tf_version() >= "2.2")
+test_succeeds("dataset_padded_batch", {
+  # in TF 2.1: Message: TypeError: padded_batch() missing 1 required positional argument: 'padded_shapes'
+  A <- range_dataset(1, 5) %>%
+    dataset_map(function(x) tf$fill(list(x), x))
+
+  padding_value <- tf$constant(-1L, dtype = tf$int64)
+  # Pad to the smallest per-batch size that fits all elements.
+  B <- A %>% dataset_padded_batch(2)
+  B %>% as_array_iterator() %>% iterate(simplify = FALSE) -> res
+  expected <- list(array(c(1, 2, 0, 2), c(2L, 2L)),
+                   array(c(3, 4, 3, 4, 3, 4, 0, 4), c(2L, 4L)))
+  expect_equal(res, expected)
+
+  # Pad to a fixed size.
+  C <- A %>% dataset_padded_batch(2, padded_shapes=5)
+  C %>% as_array_iterator() %>% iterate(simplify = FALSE) -> res
+  expected <- list(structure(c(1, 2, 0, 2, 0, 0, 0, 0, 0, 0), .Dim = c(2L, 5L)),
+                   structure(c(3, 4, 3, 4, 3, 4, 0, 4, 0, 0), .Dim = c(2L, 5L)))
+  expect_equal(res, expected)
+
+  # Pad with a custom value.
+  D <- A %>% dataset_padded_batch(2, padded_shapes=5, padding_values = padding_value)
+  D %>% as_array_iterator() %>% iterate(simplify = FALSE) -> res
+  expected <- list(structure(c(1, 2, -1, 2, -1, -1, -1, -1, -1, -1), .Dim = c(2L, 5L)),
+                   structure(c(3, 4, 3, 4, 3, 4, -1, 4, -1, -1), .Dim = c(2L, 5L)))
+  expect_equal(res, expected)
+
+  # Pad with a single value and multiple components.
+  if(tf_version() >= "2.3") {
+    ## In TF 2.2:
+    # TypeError: If shallow structure is a sequence, input must also be a sequence.
+    # Input has type: <class 'tensorflow.python.framework.ops.EagerTensor'>.
+  E <- zip_datasets(A, A) %>%  dataset_padded_batch(2, padding_values = padding_value)
+  E %>% as_array_iterator() %>% iterate(simplify = FALSE) -> res
+  expected <- list(list(structure(c(1, 2, -1, 2), .Dim = c(2L, 2L)),
+                        structure(c(1,  2, -1, 2), .Dim = c(2L, 2L))),
+                   list(structure(c(3, 4, 3, 4, 3,  4, -1, 4), .Dim = c(2L, 4L)),
+                        structure(c(3, 4, 3, 4, 3, 4, -1,  4), .Dim = c(2L, 4L))))
+  expect_equal(res, expected)
+  }
+})
+
+if(tf_version() >= "2.6")
+test_succeeds("dataset_bucket_by_sequence_length", {
+  dataset <- list(c(0),
+                  c(1, 2, 3, 4),
+                  c(5, 6, 7),
+                  c(7, 8, 9, 10, 11),
+                  c(13, 14, 15, 16, 17, 18, 19, 20),
+                  c(21, 22)) %>%
+    lapply(as.array) %>% lapply(as_tensor, "int32") %>%
+    lapply(tensors_dataset) %>%
+    do.call(dataset_concatenate, .)
+
+  res <- dataset %>%
+    dataset_bucket_by_sequence_length(
+      element_length_func = function(elem) tf$shape(elem)[1],
+      bucket_boundaries = c(3, 5),
+      bucket_batch_sizes = c(2, 2, 2)
+    ) %>%
+    as_array_iterator() %>%
+    iterate(simplify = FALSE)
+
+  expected <-
+    list(structure(c(1L, 5L, 2L, 6L, 3L, 7L, 4L, 0L), .Dim = c(2L, 4L)),
+         structure(c(7L, 13L, 8L, 14L, 9L, 15L, 10L, 16L, 11L, 17L, 0L, 18L, 0L, 19L, 0L, 20L), .Dim = c(2L, 8L)),
+         structure(c(0L, 21L, 0L, 22L), .Dim = c(2L, 2L)))
+
+#' #      [,1] [,2] [,3] [,4]
+#' # [1,]    1    2    3    4
+#' # [2,]    5    6    7    0
+#' #      [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8]
+#' # [1,]    7    8    9   10   11    0    0    0
+#' # [2,]   13   14   15   16   17   18   19   20
+#' #      [,1] [,2]
+#' # [1,]    0    0
+#' # [2,]   21   22
+
+  expect_equal(res, expected)
+})
+
+if(tf_version() >= "2.7")
+test_succeeds("choose_from_datasets", {
+  datasets <- list(tensors_dataset("foo") %>% dataset_repeat(),
+                   tensors_dataset("bar") %>% dataset_repeat(),
+                   tensors_dataset("baz") %>% dataset_repeat())
+
+  # Define a dataset containing `[0, 1, 2, 0, 1, 2, 0, 1, 2]`.
+  choice_dataset <- range_dataset(0, 3) %>% dataset_repeat(3)
+  result <- choose_from_datasets(datasets, choice_dataset)
+  res <- result %>% as_array_iterator() %>% iterate(function(s) s$decode())
+  expect_identical(res, c("foo", "bar", "baz", "foo", "bar", "baz", "foo", "bar", "baz"))
+})
+
+if(tf_version() >= "2.6")
+test_succeeds("dataset_unique", {
+  res <- c(0, 37, 2, 37, 2, 1) %>% as_tensor("int32") %>%
+    tensor_slices_dataset() %>%
+    dataset_unique() %>%
+    as_array_iterator() %>% iterate(simplify = FALSE) %>%
+    unlist() %>% sort()
+
+  expect_equal(res, c(0L, 1L, 2L, 37L))
 })
 
 test_succeeds("zip_datasets returns a dataset", {
