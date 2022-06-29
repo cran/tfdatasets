@@ -360,3 +360,56 @@ test_succeeds("dataset_scan", {
   expect_equal(res, c(0, 1, 3, 6, 10, 15, 21, 28, 36, 45))
 
 })
+
+
+
+test_succeeds("as_tensor", {
+  skip_if_no_tensorflow("2.7")
+  x <- array(as.numeric(seq(prod(4, 5))), c(4, 5))
+  ds <- x %>%
+    tensor_slices_dataset() %>%
+    dataset_map(~.x + 100, num_parallel_calls = 4) %>%
+    dataset_batch(4)
+
+  expect_identical(x + 100, as.array(as_tensor(ds)))
+  expect_identical(x + 100, as.array(ds))
+
+})
+
+
+test_succeeds("dataset_group_by_window", {
+  window_size <-  5
+  skip_if_no_tensorflow("2.7")
+
+  dataset <- range_dataset(from = 0, to = 10) %>%
+    dataset_group_by_window(
+      key_func = function(x) x %% 2,
+      reduce_func = function(key, ds) dataset_batch(ds, window_size),
+      window_size = window_size
+    )
+
+  out <- dataset %>%
+    dataset_map( ~ tf$cast(.x, "float64")) %>%
+    as_array_iterator() %>%
+    iterate(simplify = FALSE)
+
+  expected <-
+    list(array(c(0, 2, 4, 6, 8)),
+         array(c(1, 3,  5, 7, 9)))
+
+  expect_identical(out, expected)
+
+})
+
+
+
+test_succeeds("dataset_take_while", {
+  skip_if_no_tensorflow("2.7")
+  out <- range_dataset(from = 0, to = 10) %>%
+     dataset_take_while( ~ .x < 5) %>%
+     dataset_map( ~ tf$cast(.x, "float64")) %>%
+     as_array_iterator() %>%
+     iterate(simplify = FALSE)
+
+  expect_identical(out, as.list(as.numeric(0:4)))
+})

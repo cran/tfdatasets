@@ -284,6 +284,40 @@ dataset_take <- function(dataset, count) {
   as_tf_dataset(dataset$take(count = as_integer_tensor(count)))
 }
 
+#' A transformation that stops dataset iteration based on a predicate.
+#'
+#' @param dataset A TF dataset
+#' @param predicate A function that maps a nested structure of tensors (having
+#'   shapes and types defined by `self$output_shapes` and `self$output_types`)
+#'   to a scalar `tf.bool` tensor.
+#' @param name (Optional.) A name for the tf.data operation.
+#'
+#' @details
+#' Example usage:
+#' ```` r
+#'  range_dataset(from = 0, to = 10) %>%
+#'    dataset_take_while( ~ .x < 5) %>%
+#'    as_array_iterator() %>%
+#'    iterate(simplify = FALSE) %>% str()
+#'  #> List of 5
+#'  #> $ : num 0
+#'  #> $ : num 1
+#'  #> $ : num 2
+#'  #> $ : num 3
+#'  #> $ : num 4
+#' ````
+#'
+#' @return A TF Dataset
+#'
+#' @family dataset methods
+#'
+#' @export
+dataset_take_while <- function(dataset, predicate, name = NULL) {
+  as_tf_dataset(dataset$take_while(
+    as_py_function(predicate),
+    name = name))
+}
+
 
 #' Map a function across a dataset.
 #'
@@ -898,6 +932,17 @@ dataset_prepare <- function(dataset, x, y = NULL, named = TRUE, named_features =
   as_tf_dataset(dataset)
 }
 
+#' Unbatch a dataset
+#'
+#' Splits elements of a dataset into multiple elements.
+#'
+#' @param dataset A dataset
+#' @param name (Optional.) A name for the tf.data operation.
+#' @export
+dataset_unbatch <- function(dataset, name = NULL) {
+  dataset$unbatch(name)
+}
+
 
 #' Add the tf_dataset class to a dataset
 #'
@@ -1355,3 +1400,140 @@ dataset_snapshot <- function(dataset, path, compression=c("AUTO", "GZIP", "SNAPP
 as_array_iterator <- function(dataset) {
   dataset$as_numpy_iterator()
 }
+
+
+#' Group windows of elements by key and reduce them
+#'
+#' @details This transformation maps each consecutive element in a dataset to a
+#' key using `key_func()` and groups the elements by key. It then applies
+#' `reduce_func()` to at most `window_size_func(key)` elements matching the same
+#' key. All except the final window for each key will contain
+#' `window_size_func(key)` elements; the final window may be smaller.
+#'
+#' You may provide either a constant `window_size` or a window size determined
+#' by the key through `window_size_func`.
+#'
+#' ````r
+#' window_size <-  5
+#' dataset <- range_dataset(to = 10) %>%
+#'   dataset_group_by_window(
+#'     key_func = function(x) x %% 2,
+#'     reduce_func = function(key, ds) dataset_batch(ds, window_size),
+#'     window_size = window_size
+#'   )
+#'
+#' it <- as_array_iterator(dataset)
+#' while (!is.null(elem <- iter_next(it)))
+#'   print(elem)
+#' #> tf.Tensor([0 2 4 6 8], shape=(5), dtype=int64)
+#' #> tf.Tensor([1 3 5 7 9], shape=(5), dtype=int64)
+#' ````
+#'
+#' @param dataset a TF Dataset
+#'
+#' @param key_func A function mapping a nested structure of tensors (having
+#'   shapes and types defined by `self$output_shapes` and `self$output_types`)
+#'   to a scalar `tf.int64` tensor.
+#'
+#' @param reduce_func A function mapping a key and a dataset of up to
+#'   `window_size` consecutive elements matching that key to another dataset.
+#'
+#' @param window_size A `tf.int64` scalar `tf.Tensor`, representing the number
+#'   of consecutive elements matching the same key to combine in a single batch,
+#'   which will be passed to `reduce_func`. Mutually exclusive with
+#'   `window_size_func`.
+#'
+#' @param window_size_func A function mapping a key to a `tf.int64` scalar
+#'   `tf.Tensor`, representing the number of consecutive elements matching the
+#'   same key to combine in a single batch, which will be passed to
+#'   `reduce_func`. Mutually exclusive with `window_size`.
+#'
+#' @param name (Optional.) A name for the Tensorflow operation.
+#'
+#' @seealso
+#'   +  <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#group_by_window>
+#' @export
+dataset_group_by_window <-
+function(dataset, key_func, reduce_func,
+         window_size = NULL,
+         window_size_func = NULL,
+         name = NULL) {
+  if(!is.null(window_size_func))
+    window_size_func <- as_py_function(window_size_func)
+  as_tf_dataset(dataset$group_by_window(
+    key_func = as_py_function(key_func),
+    reduce_func = as_py_function(reduce_func),
+    window_size = as_integer_tensor(window_size),
+    window_size_func = window_size_func,
+    name = name
+  ))
+}
+
+
+#' Get the single element of the dataset.
+#'
+#' The function enables you to use a TF Dataset in a stateless "tensor-in
+#' tensor-out" expression, without creating an iterator. This facilitates the
+#' ease of data transformation on tensors using the optimized TF Dataset
+#' abstraction on top of them.
+#'
+#' For example, consider a `preprocess_batch()` which would take as an input
+#' a batch of raw features and returns the processed feature.
+#'
+#' ```r
+#' preprocess_one_case <- function(x) x + 100
+#'
+#' preprocess_batch   <- function(raw_features) {
+#'   batch_size <- dim(raw_features)[1]
+#'   ds <- raw_features %>%
+#'     tensor_slices_dataset() %>%
+#'     dataset_map(preprocess_one_case, num_parallel_calls = batch_size) %>%
+#'     dataset_batch(batch_size)
+#'   as_tensor(ds)
+#' }
+#'
+#' raw_features <- array(seq(prod(4, 5)), c(4, 5))
+#' preprocess_batch(raw_features)
+#' ````
+#'
+#' In the above example, the batch of `raw_features` was converted to a TF
+#' Dataset. Next, each of the raw_feature cases in the batch was mapped using
+#' the preprocess_one_case and the processed features were grouped into a single
+#' batch. The final dataset contains only one element which is a batch of all
+#' the processed features.
+#'
+#' Note: The dataset should contain only one element. Now, instead of creating
+#' an iterator for the dataset and retrieving the batch of features, the
+#' `as_tensor()` function is used to skip the iterator creation process and
+#' directly output the batch of features.
+#'
+#' This can be particularly useful when your tensor transformations are
+#' expressed as TF Dataset operations, and you want to use those transformations
+#' while serving your model.
+#'
+#' @param x A TF Dataset
+#' @param name (Optional.) A name for the TensorFlow operation.
+#' @param ... passed on to `tensorflow::as_tensor()`
+#' @seealso
+#' +  <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#get_single_element>
+#'
+#' @export
+#' @rdname as_tensor.tf_dataset
+#' @aliases get_single_element
+#' @importFrom tensorflow as_tensor
+as_tensor.tensorflow.python.data.ops.dataset_ops.DatasetV2 <- function(x, ..., name = NULL) {
+  tensor <- x$get_single_element(name = name)
+  if(length(list(...)))
+    tensorflow::as_tensor(tensor, ..., name = name)
+  else
+    tensor
+}
+
+#' @rdname as_tensor.tf_dataset
+#' @export
+as.array.tensorflow.python.data.ops.dataset_ops.DatasetV2 <- function(x, ...)
+  as.array(as_tensor.tensorflow.python.data.ops.dataset_ops.DatasetV2(x, ...))
+
+
+#' @export
+tensorflow::as_tensor
