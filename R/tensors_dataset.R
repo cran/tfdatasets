@@ -32,7 +32,7 @@ tensors_dataset <- function(tensors) {
 #' Creates a dataset whose elements are slices of the given tensors.
 #'
 #' @param tensors A nested structure of tensors, each having the same size in
-#'   the 0th dimension.
+#'   the first dimension.
 #'
 #' @return A dataset.
 #'
@@ -43,9 +43,12 @@ tensor_slices_dataset <-function(tensors) {
 
   validate_tf_version()
 
+  with(tf$device("cpu"), {
+  # https://github.com/tensorflow/tensorflow/issues/71744
   as_tf_dataset(
     tf$data$Dataset$from_tensor_slices(tensors = resolve_tensors(tensors))
   )
+  })
 }
 
 #' Splits each rank-N `tf$SparseTensor` in this dataset row-wise.

@@ -1,10 +1,10 @@
 Package: tfdatasets
 Type: Package
 Title: Interface to 'TensorFlow' Datasets
-Version: 2.9.0
+Version: 2.17.0
 Authors@R: c(
   person("Tomasz", "Kalinowski", role = c("ctb", "cph", "cre"),
-         email = "tomasz.kalinowski@rstudio.com"),
+         email = "tomasz@posit.co"),
   person("Daniel", "Falbel", role = c("ctb", "cph"),
          email = "daniel@rstudio.com"),
   person("JJ", "Allaire", role = c("aut", "cph"),
@@ -30,12 +30,12 @@ LazyData: true
 Depends: R (>= 3.1)
 Imports: reticulate (>= 1.10), tensorflow (>= 1.13.1), magrittr, rlang,
         tidyselect, stats, generics, vctrs
-RoxygenNote: 7.2.0
-Suggests: testthat, knitr, keras, rsample, rmarkdown, Metrics, dplyr,
-        tfestimators
+RoxygenNote: 7.3.2
+Suggests: testthat, knitr, keras3, rsample, rmarkdown, Metrics, dplyr,
+        progress, tfestimators
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2022-06-29 20:47:07 UTC; tomasz
+Packaged: 2024-07-16 18:09:10 UTC; tomasz
 Author: Tomasz Kalinowski [ctb, cph, cre],
   Daniel Falbel [ctb, cph],
   JJ Allaire [aut, cph],
@@ -43,6 +43,6 @@ Author: Tomasz Kalinowski [ctb, cph, cre],
   Kevin Ushey [aut],
   RStudio [cph, fnd],
   Google Inc. [cph]
-Maintainer: Tomasz Kalinowski <tomasz.kalinowski@rstudio.com>
+Maintainer: Tomasz Kalinowski <tomasz@posit.co>
 Repository: CRAN
-Date/Publication: 2022-06-29 21:10:02 UTC
+Date/Publication: 2024-07-16 22:30:01 UTC

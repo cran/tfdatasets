@@ -1,4 +1,8 @@
-# tfdatasets 2.8.0
+# tfdatasets 2.17.0
+
+- Updates for TensorFlow v2.17.0, Keras 3.
+
+# tfdatasets 2.9.0
 
 - New `dataset_unbatch()`
 - New `dataset_group_by_window()`

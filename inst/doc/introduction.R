@@ -1,10 +1,10 @@
 ## ----setup, include=FALSE-----------------------------------------------------
 knitr::opts_chunk$set(eval = FALSE)
 
-## ---- eval=FALSE--------------------------------------------------------------
+## ----eval=FALSE---------------------------------------------------------------
 #  devtools::install_github("rstudio/tfdatasets")
 
-## ---- eval=FALSE--------------------------------------------------------------
+## ----eval=FALSE---------------------------------------------------------------
 #  library(tfdtasets)
 #  install_tensorflow()
 
@@ -14,7 +14,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #  # create specification for parsing records from an example file
 #  iris_spec <- csv_record_spec("iris.csv")
 #  
-#  # read the datset
+#  # read the dataset
 #  dataset <- text_line_dataset("iris.csv", record_spec = iris_spec)
 #  
 #  # take a glimpse at the dataset
@@ -59,7 +59,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #  filenames <- c("/var/data/file1.tfrecord", "/var/data/file2.tfrecord")
 #  dataset <- tfrecord_dataset(filenames, num_parallel_reads = 4)
 
-## ---- eval=FALSE--------------------------------------------------------------
+## ----eval=FALSE---------------------------------------------------------------
 #  library(tfdatasets)
 #  
 #  record_spec <- sql_record_spec(
@@ -176,7 +176,7 @@ knitr::opts_chunk$set(eval = FALSE)
 #  )
 
 ## -----------------------------------------------------------------------------
-#  library(keras)
+#  library(keras3)
 #  library(tfdatasets)
 #  
 #  batch_size = 128
@@ -246,73 +246,9 @@ knitr::opts_chunk$set(eval = FALSE)
 #    dataset_shuffle(20) %>%
 #    dataset_batch(5)
 #  
-#  iter <- make_iterator_one_shot(dataset)
-#  next_batch <- iterator_get_next(iter)
+#  iter <- as_iterator(dataset)
+#  next_batch <- iter_next(iter)
 #  next_batch
-
-## -----------------------------------------------------------------------------
-#  sess <- tf$Session()
-#  sess$run(next_batch)
-
-## -----------------------------------------------------------------------------
-#  library(tfdatasets)
-#  
-#  sess <- tf$Session()
-#  
-#  mtcars_spec <- csv_record_spec("mtcars.csv")
-#  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
-#    dataset_shuffle(5000) %>%
-#    dataset_repeat() # repeat infinitely
-#    dataset_prepare(x = c(mpg, disp), y = cyl) %>%
-#    dataset_batch(128) %>%
-#  
-#  iter <- make_iterator_one_shot(dataset)
-#  next_batch <- iterator_get_next(iter)
-#  
-#  steps <- 200
-#  for (i in 1:steps) {
-#  
-#    # use next_batch for training, etc.
-#  
-#    # (note that you need to actually use the next_batch e.g. by passing it to a
-#    # function that consumes a tensor or by running it explicitly) in order to
-#    # advance to the next batch)
-#  }
-
-## -----------------------------------------------------------------------------
-#  library(tfdatasets)
-#  
-#  sess <- tf$Session()
-#  
-#  mtcars_spec <- csv_record_spec("mtcars.csv")
-#  dataset <- text_line_dataset("mtcars.csv", record_spec = mtcars_spec) %>%
-#    dataset_prepare(x = c(mpg, disp), y = cyl) %>%
-#    dataset_batch(128) %>%
-#    dataset_repeat(10)
-#  
-#  iter <- make_iterator_one_shot(dataset)
-#  next_batch <- iterator_get_next(iter)
-#  
-#  tryCatch({
-#    while(TRUE) {
-#      batch <- sess$run(next_batch)
-#      str(batch)
-#    }
-#  }, error = out_of_range_handler)
-
-## -----------------------------------------------------------------------------
-#  until_out_of_range({
-#    batch <- sess$run(next_batch)
-#    str(batch)
-#  })
-
-## -----------------------------------------------------------------------------
-#  iter <- make_iterator_one_shot(dataset)
-#  
-#  until_out_of_range({
-#    batch <- iterator_get_next(iter)
-#    str(batch)
-#  })
 
 ## -----------------------------------------------------------------------------
 #  dataset <- read_files("data/*.csv", text_line_dataset, record_spec = mtcars_spec,
