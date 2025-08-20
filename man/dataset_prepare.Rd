@@ -63,6 +63,3 @@ Note that the \code{y} element will be omitted when \code{y} is \code{NULL}.
 Transform a dataset with named columns into a list with features (\code{x}) and
 response (\code{y}) elements.
 }
-\seealso{
-\link[=input_fn.tf_dataset]{input_fn()} for use with \pkg{tfestimators}.
-}
